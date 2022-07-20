@@ -1,10 +1,14 @@
 name: Update Bindings
 
 on:
-  schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
-
+  workflow_call:
+    secrets:
+      BOT_ACCESS_TOKEN:
+        required: true
+      ONSHAPE_API_ACCESS_KEY:
+        required: true
+      ONSHAPE_API_SECRET_KEY:
+        required: true
 jobs:
   fetch:
     runs-on: ubuntu-latest

@@ -1,9 +1,14 @@
 name: Test Bindings
 
 on:
-  pull_request:
-    types: [opened, reopened, edited]
-  workflow_dispatch:
+  workflow_call:
+    secrets:
+      BOT_ACCESS_TOKEN:
+        required: true
+      ONSHAPE_API_ACCESS_KEY:
+        required: true
+      ONSHAPE_API_SECRET_KEY:
+        required: true
   
 jobs:
   test:

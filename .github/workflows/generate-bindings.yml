@@ -1,12 +1,13 @@
 name: Generate Bindings
 on:
-  push:
-    branches:
-      - 'main'
-    paths:
-      - 'openapi.json'
-  workflow_dispatch:
   workflow_call:
+    secrets:
+      BOT_ACCESS_TOKEN:
+        required: true
+      ONSHAPE_API_ACCESS_KEY:
+        required: true
+      ONSHAPE_API_SECRET_KEY:
+        required: true
 
 jobs:
   generate:
