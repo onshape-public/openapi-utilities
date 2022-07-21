@@ -33,6 +33,10 @@ jobs:
         run: |
           generatorUrl=$(cat ${{ github.workspace }}/bindgen-config.json | json generate.generatorUrl)
           wget "${generatorUrl}" -O ${{ github.workspace }}/openapi-generator-cli.jar
+      - name: Download custom generator
+        run: |
+          generatorUrl=$(cat ${{ github.workspace }}/bindgen-config.json | json generate.customGeneratorUrl)
+          wget "${generatorUrl}" -O ${{ github.workspace }}/go-oapi-codegen.jar
       - name: Preprocess specification
         id: ps
         run: |
