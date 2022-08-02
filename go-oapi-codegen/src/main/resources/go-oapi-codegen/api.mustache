@@ -3,7 +3,6 @@ package {{packageName}}
 
 {{#operations}}
 import (
-	"bytes"
 	"context"
 	"io"
 	"io/ioutil"
@@ -347,14 +346,10 @@ func (a *{{{classname}}}Service) {{nickname}}Execute(r {{#structPrefix}}{{&class
 	}
 
 	var _ io.Reader
-	localVarBody, err := ioutil.ReadAll(localVarHTTPResponse.Body)
-	localVarHTTPResponse.Body.Close()
-	localVarHTTPResponse.Body = ioutil.NopCloser(bytes.NewBuffer(localVarBody))
-	if err != nil {
-		return {{#returnType}}localVarReturnValue, {{/returnType}}localVarHTTPResponse, err
-	}
 
 	if localVarHTTPResponse.StatusCode >= 300 {
+		localVarBody, _ := ioutil.ReadAll(localVarHTTPResponse.Body)
+		
 		newErr := &GenericOpenAPIError{
 			body:  localVarBody,
 			error: localVarHTTPResponse.Status,
@@ -380,7 +375,7 @@ func (a *{{{classname}}}Service) {{nickname}}Execute(r {{#structPrefix}}{{&class
 		{{/wildcard}}
 		{{/range}}
 			var v {{{dataType}}}
-			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			err = a.client.decode(&v, &localVarHTTPResponse.Body, localVarHTTPResponse.Header.Get("Content-Type"))
 			if err != nil {
 				newErr.error = err.Error()
 				return {{#returnType}}localVarReturnValue, {{/returnType}}localVarHTTPResponse, newErr
@@ -400,8 +395,11 @@ func (a *{{{classname}}}Service) {{nickname}}Execute(r {{#structPrefix}}{{&class
 	}
 
 	{{#returnType}}
-	err = a.client.decode(&localVarReturnValue, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+	err = a.client.decode(&localVarReturnValue, &localVarHTTPResponse.Body, localVarHTTPResponse.Header.Get("Content-Type"))
+	
 	if err != nil {
+		localVarBody, _ := ioutil.ReadAll(localVarHTTPResponse.Body)
+
 		newErr := &GenericOpenAPIError{
 			body:  localVarBody,
 			error: err.Error(),
