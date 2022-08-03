@@ -63,11 +63,11 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
 
   @Override
   public ModelsMap postProcessModels(ModelsMap objs) {
+    ensureVarsAreInAllVars(objs);
     resolveParameterNamingConflicts(objs);
     addUnconstrainedDiscriminatorInheritance(objs);
     objs = super.postProcessModels(objs);
     addAdditionalImports(objs);
-    ensureVarsAreInAllVars(objs);
 
     return objs;
   }
