@@ -39,19 +39,6 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
   @Override
   public OperationsMap postProcessOperationsWithModels(OperationsMap objs, List<ModelMap> allModels) {
     OperationsMap results = super.postProcessOperationsWithModels(objs, allModels);
-    boolean addedOSImport = results.getImports().stream().anyMatch(x -> x.values().stream().anyMatch(y -> "os".equals(y)));
-    for (CodegenOperation operation : results.getOperations().getOperation()) {
-        if (!addedOSImport && OS_FILE_TYPE.equals(operation.returnType)) {
-            //results.getImports().add(createMapping("import", "os"));
-            addedOSImport = true;
-        }
-        for (CodegenParameter param : operation.allParams) {
-            if (!addedOSImport && OS_FILE_TYPE.equals(param.dataType)) {
-              //results.getImports().add(createMapping("import", "os"));
-                addedOSImport = true;
-            }
-        }
-    }
     return results;
   }
 
@@ -124,7 +111,6 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
 
   protected void addAdditionalImports(ModelsMap objs) {
     boolean addedTimeImport = objs.getImports().stream().anyMatch(x -> x.values().stream().anyMatch(y -> "time".equals(y)));
-    boolean addedOSImport = objs.getImports().stream().anyMatch(x -> x.values().stream().anyMatch(y -> "os".equals(y)));
     for (ModelMap m : objs.getModels()) {
       CodegenModel model = m.getModel();
       for (CodegenProperty param : model.allVars) {
@@ -132,10 +118,6 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
               && ("time.Time".equals(param.dataType) || ("[]time.Time".equals(param.dataType)))) {
                 objs.getImports().add(createMapping("import", "time"));
               addedTimeImport = true;
-          }
-          if (!addedOSImport && OS_FILE_TYPE.equals(param.baseType)) {
-              objs.getImports().add(createMapping("import", "os"));
-              addedOSImport = true;
           }
       }
     }
