@@ -67,6 +67,7 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
     addUnconstrainedDiscriminatorInheritance(objs);
     objs = super.postProcessModels(objs);
     addAdditionalImports(objs);
+    ensureVarsAreInAllVars(objs);
 
     return objs;
   }
@@ -91,6 +92,17 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
             }
 
             param.name = pName.value;
+        }
+    }
+  }
+
+  protected void ensureVarsAreInAllVars(ModelsMap objs) {
+    for (ModelMap m : objs.getModels()) {
+        CodegenModel model = m.getModel();
+        for(CodegenProperty prop : model.getVars()) {
+            if(model.getAllVars().stream().noneMatch(x -> x.name != null && (x == prop || x.name == prop.name))) {
+                model.getAllVars().add(model.getAllVars().size(), prop);
+            }
         }
     }
   }
