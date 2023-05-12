@@ -68,8 +68,49 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
     addUnconstrainedDiscriminatorInheritance(objs);
     objs = super.postProcessModels(objs);
     addAdditionalImports(objs);
+    prefixConstNamesWithType(objs);
 
     return objs;
+  }
+
+  /**
+   * When creating enums, a const is created for each possible value. This method prefixes the name of the const
+   * with the type of the enum to prevent name collisions within the same go module. It also renames the const to
+   * PascalCase.
+   * @param models - Map of the models to create
+   */
+  protected void prefixConstNamesWithType(ModelsMap models) {
+    for (ModelMap m : models.getModels()) {
+        CodegenModel model = m.getModel();
+
+        if (model.isEnum){
+            if (model.allowableValues.containsKey("enumVars")) {
+                ArrayList<HashMap<String, String>> enumVars;
+
+                try {
+                    enumVars = (ArrayList<HashMap<String, String>>) model.allowableValues.get("enumVars");
+                } catch (Exception e) {
+                    LOGGER.warn("Error reading allowable values for enum {}, incorrect type", model.getName());
+                    return;
+                }
+                
+                for (HashMap<String, String> enumVar : enumVars) {
+                    // Switch to PascalCase
+                    String name = enumVar.get("name");
+                    name = StringUtils.replace(name, "_", " ");
+                    name = StringUtils.lowerCase(name);
+                    String[] nameparts = name.split(" ");
+                    
+                    // Prefix with type
+                    name = model.getName();
+                    for (String namePart : nameparts) {
+                        name = name + StringUtils.capitalize(namePart);
+                    }
+                    enumVar.put("name", name);
+                }
+            }
+        }
+    }
   }
 
   protected void resolveParameterNamingConflicts(ModelsMap objs) {
