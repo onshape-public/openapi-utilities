@@ -260,25 +260,36 @@ func (a *{{{classname}}}Service) {{nickname}}Execute(r {{#structPrefix}}{{&class
 
 {{#required}}
 	{{paramName}}LocalVarFile := *r.{{paramName}}
-{{/required}}
-{{^required}}
-	var {{paramName}}LocalVarFile *{{dataType}}
-	if r.{{paramName}} != nil {
-		{{paramName}}LocalVarFile = r.{{paramName}}
+	{{#isArray}}
+	for _, file := range {{paramName}}LocalVarFile { 
+		{{paramName}}LocalVarFileBytes = file.Data
+		{{paramName}}LocalVarFileName = file.Name
+		formFiles = append(formFiles, formFile{fileData: {{paramName}}LocalVarFileBytes, fileName: {{paramName}}LocalVarFileName, formFileName: {{paramName}}LocalVarFormFileName})		
 	}
-	if {{paramName}}LocalVarFile != nil {
-		fbs, _ := ioutil.ReadAll({{paramName}}LocalVarFile)
-{{/required}}
-{{#required}}
-		fbs, _ := ioutil.ReadAll(&{{paramName}}LocalVarFile)
-{{/required}}
-		{{paramName}}LocalVarFileBytes = fbs
-		{{paramName}}LocalVarFileName = {{paramName}}LocalVarFile.Name()
-		{{paramName}}LocalVarFile.Close()
-{{^required}}
-	}
-{{/required}}
+	{{/isArray}}
+	{{^isArray}}
+	{{paramName}}LocalVarFileBytes = {{paramName}}LocalVarFile.Data
+	{{paramName}}LocalVarFileName = {{paramName}}LocalVarFile.Name
 	formFiles = append(formFiles, formFile{fileData: {{paramName}}LocalVarFileBytes, fileName: {{paramName}}LocalVarFileName, formFileName: {{paramName}}LocalVarFormFileName})
+	{{/isArray}}
+{{/required}}
+{{^required}}
+	if r.{{paramName}} != nil {
+		{{paramName}}LocalVarFile := *r.{{paramName}}
+		{{#isArray}}
+		for _, file := range {{paramName}}LocalVarFile { 
+			{{paramName}}LocalVarFileBytes = file.Data
+			{{paramName}}LocalVarFileName = file.Name
+			formFiles = append(formFiles, formFile{fileData: {{paramName}}LocalVarFileBytes, fileName: {{paramName}}LocalVarFileName, formFileName: {{paramName}}LocalVarFormFileName})		
+		}
+		{{/isArray}}
+		{{^isArray}}
+		{{paramName}}LocalVarFileBytes = {{paramName}}LocalVarFile.Data
+		{{paramName}}LocalVarFileName = {{paramName}}LocalVarFile.Name
+		formFiles = append(formFiles, formFile{fileData: {{paramName}}LocalVarFileBytes, fileName: {{paramName}}LocalVarFileName, formFileName: {{paramName}}LocalVarFormFileName})
+		{{/isArray}}
+	}
+{{/required}}
 {{/isFile}}
 {{^isFile}}
 {{#required}}
@@ -346,7 +357,7 @@ func (a *{{{classname}}}Service) {{nickname}}Execute(r {{#structPrefix}}{{&class
 	if err != nil {
 		return {{#returnType}}localVarReturnValue, {{/returnType}}nil, err
 	}
-
+	
 	localVarHTTPResponse, err := a.client.callAPI(req)
 	if err != nil || localVarHTTPResponse == nil {
 		return {{#returnType}}localVarReturnValue, {{/returnType}}localVarHTTPResponse, err
