@@ -76,8 +76,8 @@ type AWSv4 struct {
 }
 
 {{/withAWSV4Signature}}
-// ServerVariable stores the information about a server variable
-type ServerVariable struct {
+// APIServerVariable stores the information about a server variable
+type APIServerVariable struct {
 	Description  string
 	DefaultValue string
 	EnumValues   []string
@@ -87,7 +87,7 @@ type ServerVariable struct {
 type ServerConfiguration struct {
 	URL string
 	Description string
-	Variables map[string]ServerVariable
+	Variables map[string]APIServerVariable
 }
 
 // ServerConfigurations stores multiple ServerConfiguration items
@@ -128,9 +128,9 @@ func NewConfiguration() *Configuration {
 				Description: "{{{description}}}{{^description}}No description provided{{/description}}",
 				{{#variables}}
 				{{#-first}}
-				Variables: map[string]ServerVariable{
+				Variables: map[string]APIServerVariable{
 				{{/-first}}
-					"{{{name}}}": ServerVariable{
+					"{{{name}}}": APIServerVariable{
 						Description: "{{{description}}}{{^description}}No description provided{{/description}}",
 						DefaultValue: "{{{defaultValue}}}",
 						{{#enumValues}}
@@ -166,9 +166,9 @@ func NewConfiguration() *Configuration {
 					Description: "{{{description}}}{{^description}}No description provided{{/description}}",
 					{{#variables}}
 					{{#-first}}
-					Variables: map[string]ServerVariable{
+					Variables: map[string]APIServerVariable{
 					{{/-first}}
-						"{{{name}}}": ServerVariable{
+						"{{{name}}}": APIServerVariable{
 							Description: "{{{description}}}{{^description}}No description provided{{/description}}",
 							DefaultValue: "{{{defaultValue}}}",
 							{{#enumValues}}
