@@ -634,20 +634,35 @@ func strlen(s string) int {
 type HttpFile struct {
 	Name string
 	Data io.ReadCloser
+	FormFieldName string
 }
 
 func NewHttpFile(name string, data []byte) HttpFile {
 	buf := io.NopCloser(bytes.NewBuffer(data))
-	return HttpFile{name,buf}
+	return HttpFile{name, buf, "file"}
 }
 
 func NewHttpFileFromReader(name string, data io.ReadCloser) HttpFile {
-	return HttpFile{name,data}
+	return HttpFile{name, data, "file"}
 }
 
 func NewHttpFileFromOsFile(file *os.File) HttpFile {
 	name := file.Name()
-	return HttpFile{name,file}
+	return HttpFile{name, file, "file"}
+}
+
+func NewHttpFileWithFormFieldName(name, formFieldName string, data []byte) HttpFile {
+	buf := io.NopCloser(bytes.NewBuffer(data))
+	return HttpFile{name, buf, formFieldName}
+}
+
+func NewHttpFileFromReaderWithFormFieldName(name, formFieldName string, data io.ReadCloser) HttpFile {
+	return HttpFile{name, data, formFieldName}
+}
+
+func NewHttpFileFromOsFileWithFormFieldName(formFieldName string, file *os.File) HttpFile {
+	name := file.Name()
+	return HttpFile{name, file, formFieldName}
 }
 
 func (h *HttpFile) Close() {

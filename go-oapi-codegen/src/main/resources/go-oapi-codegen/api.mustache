@@ -264,6 +264,9 @@ func (a *{{{classname}}}Service) {{nickname}}Execute(r {{#structPrefix}}{{&class
 	for _, file := range {{paramName}}LocalVarFile { 
 		{{paramName}}LocalVarFileBytes = file.Data
 		{{paramName}}LocalVarFileName = file.Name
+		if file.FormFieldName != "" {
+			{{paramName}}LocalVarFormFileName = file.FormFieldName
+		}
 		formFiles = append(formFiles, formFile{fileData: {{paramName}}LocalVarFileBytes, fileName: {{paramName}}LocalVarFileName, formFileName: {{paramName}}LocalVarFormFileName})		
 	}
 	{{/isArray}}
@@ -280,6 +283,9 @@ func (a *{{{classname}}}Service) {{nickname}}Execute(r {{#structPrefix}}{{&class
 		for _, file := range {{paramName}}LocalVarFile { 
 			{{paramName}}LocalVarFileBytes = file.Data
 			{{paramName}}LocalVarFileName = file.Name
+			if file.FormFieldName != "" {
+				{{paramName}}LocalVarFormFileName = file.FormFieldName
+			}
 			formFiles = append(formFiles, formFile{fileData: {{paramName}}LocalVarFileBytes, fileName: {{paramName}}LocalVarFileName, formFileName: {{paramName}}LocalVarFormFileName})		
 		}
 		{{/isArray}}
