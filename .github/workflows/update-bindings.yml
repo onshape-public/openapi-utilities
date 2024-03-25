@@ -28,7 +28,6 @@ jobs:
          versionAlias=$(echo "${fetchSettings}" | json versionAlias)
          userRole=$(echo "${fetchSettings}" | json userRole)
          operationIds=$(echo "${fetchSettings}" | json operationIds)
-         keySet=$(echo ${{ secrets.ONSHAPE_API_ACCESS_KEY }}:${{ secrets.ONSHAPE_API_SECRET_KEY }} | base64)
          
          if [ "${versionAlias}" = null ]; then
            versionAlias=
@@ -45,7 +44,7 @@ jobs:
           done <<< $(echo "${operationIds}" | json -ga)
          fi
          
-         curl -X 'GET' -G ${url}'/api/openapi' -d restUserRole=${userRole} ${versionAlias} ${operationIdSet} -H 'accept: */*' -H 'Authorization: Basic '"${keySet}" > ${{ github.workspace }}/openapi.json
+         curl -X 'GET' -G ${url}'/api/openapi' -d restUserRole=${userRole} ${versionAlias} ${operationIdSet} -H 'accept: */*' > ${{ github.workspace }}/openapi.json
       - name: Check version status
         id: fetchStatus
         run: |
