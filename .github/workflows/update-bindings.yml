@@ -44,7 +44,7 @@ jobs:
           done <<< $(echo "${operationIds}" | json -ga)
          fi
          
-         curl -X 'GET' -G ${url}'/api/openapi' -d restUserRole=${userRole} ${versionAlias} ${operationIdSet} -H 'accept: */*' > ${{ github.workspace }}/openapi.json
+         curl -v -X 'GET' -G ${url}'/api/openapi' -d restUserRole=${userRole} ${versionAlias} ${operationIdSet} -H 'accept: */*' > ${{ github.workspace }}/openapi.json
       - name: Check version status
         id: fetchStatus
         run: |
