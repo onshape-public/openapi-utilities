@@ -27,6 +27,7 @@ jobs:
          go get -u ./...
          go mod tidy
          if [[ $(git status --porcelain go.mod go.sum) ]]; 
-            git commit -a -m "updated go mods"
+            git add go.mod go.sum
+            git commit -m "updated go mods"
          fi
          go test ${{ github.workspace }}/...
