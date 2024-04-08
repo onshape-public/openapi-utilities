@@ -24,10 +24,4 @@ jobs:
          export ONSHAPE_BASE_URL=https://demo-c.dev.onshape.com
          export ONSHAPE_API_ACCESS_KEY=${{ secrets.ONSHAPE_API_ACCESS_KEY }}
          export ONSHAPE_API_SECRET_KEY=${{ secrets.ONSHAPE_API_SECRET_KEY }}
-         go get -u ./...
-         go mod tidy
-         if [[ $(git status --porcelain go.mod go.sum) ]]; 
-            git add go.mod go.sum
-            git commit -m "updated go mods"
-         fi
          go test ${{ github.workspace }}/...
