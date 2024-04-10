@@ -33,5 +33,7 @@ jobs:
          if [[ $(git status --porcelain go.mod go.sum) ]]; then
             git add go.mod go.sum
             git commit -m "Update go mods"
+            git push
          fi
+
          go test ${{ github.workspace }}/...
