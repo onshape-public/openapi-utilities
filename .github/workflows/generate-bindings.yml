@@ -109,10 +109,21 @@ jobs:
           else
            echo 'No new changes; bindings are the same.'
           fi
+      - name: Update go mods
+        id: ugm
+        if: ${{ steps.gb.outputs.changes-occurred }}
+        run: |
+          go get -u ${{ github.workspace }}/...
+          go mod tidy
+
+          if [[ $(git status --porcelain go.mod go.sum) ]]; then
+            echo 'Go modules updated'
+            git add go.mod go.sum
+          fi
       - name: Create pull request
         if: ${{ steps.gb.outputs.changes-occurred }}
         id: cpr
-        uses: peter-evans/create-pull-request@v4
+        uses: peter-evans/create-pull-request@v6
         with:
           branch: onshape-${{ steps.ps.outputs.change }}_${{ steps.ps.outputs.random-ext }}
           delete-branch: true
