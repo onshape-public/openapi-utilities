@@ -93,14 +93,14 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
                     LOGGER.warn("Error reading allowable values for enum {}, incorrect type", model.getName());
                     return;
                 }
-                
+
                 for (HashMap<String, String> enumVar : enumVars) {
                     // Switch to PascalCase
                     String name = enumVar.get("name");
                     name = StringUtils.replace(name, "_", " ");
                     name = StringUtils.lowerCase(name);
                     String[] nameparts = name.split(" ");
-                    
+
                     // Prefix with type
                     name = model.getName();
                     for (String namePart : nameparts) {
@@ -276,6 +276,10 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
 
       return toModelName(openAPIType);
   }
+  @Override
+  public Schema unaliasSchema(Schema schema) {
+    return unaliasSchema(schema, Collections.emptyMap());
+  }
 
   public Schema unaliasSchema(Schema schema, Map<String, String> importMappings) {
       Map<String, Schema> allSchemas = ModelUtils.getSchemas(openAPI);
@@ -335,7 +339,7 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
         }
     return schema;
   }
-  
+
   @Override
   public CodegenModel fromModel(String name, Schema schema) {
       Map<String, Schema> allDefinitions = ModelUtils.getSchemas(this.openAPI);
