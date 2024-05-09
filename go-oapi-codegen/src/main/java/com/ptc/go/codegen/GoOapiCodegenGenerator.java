@@ -195,12 +195,12 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
   }
 
   private void fixModelFreeform(Schema model) {
-    if (ModelUtils.isDisallowAdditionalPropertiesIfNotPresent() && ModelUtils.isFreeFormObject(openAPI, model)) {
-      Schema addlProps = ModelUtils.getAdditionalProperties(openAPI, model);
+    if (ModelUtils.isDisallowAdditionalPropertiesIfNotPresent() && ModelUtils.isFreeFormObject( model)) {
+      Schema addlProps = ModelUtils.getAdditionalProperties(model);
       if (addlProps == null) {
           Map<String, Object> exts = model.getExtensions();
           if(exts == null) {
-              exts = new HashMap<>();
+              exts = new HashMap();
               model.setExtensions(exts);
           }
           exts.put("x-is-free-form", false);
@@ -245,7 +245,7 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
           }
           return "[]" + typDecl;
       } else if (ModelUtils.isMapSchema(p)) {
-          Schema inner = getAdditionalProperties(p);
+          Schema inner = ModelUtils.getAdditionalProperties(p);
           return getSchemaType(p) + "[string]" + getTypeDeclaration(unaliasSchema(inner, Collections.emptyMap()));
       }
       //return super.getTypeDeclaration(p);
@@ -277,7 +277,6 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
       return toModelName(openAPIType);
   }
 
-  @Override
   public Schema unaliasSchema(Schema schema, Map<String, String> importMappings) {
       Map<String, Schema> allSchemas = ModelUtils.getSchemas(openAPI);
         if (allSchemas == null || allSchemas.isEmpty()) {
@@ -300,7 +299,7 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
                     return schema; // generate a model extending array
                 } else {
                     return unaliasSchema(allSchemas.get(ModelUtils.getSimpleRef(schema.get$ref())),
-                            importMappings);
+                    Collections.emptyMap());
                 }
             } else if (ModelUtils.isComposedSchema(ref)) {
                 return schema;
@@ -313,11 +312,11 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
                     } else {
                         // treat it as a typical map
                         return unaliasSchema(allSchemas.get(ModelUtils.getSimpleRef(schema.get$ref())),
-                                importMappings);
+                        Collections.emptyMap());
                     }
                 }
             } else if (ModelUtils.isObjectSchema(ref)) { // model
-                if ((ref.getProperties() != null && !ref.getProperties().isEmpty()) || ModelUtils.isDisallowAdditionalPropertiesIfNotPresent() || new Boolean(false).equals(ref.getAdditionalProperties())) { // has at least one property
+                if ((ref.getProperties() != null && !ref.getProperties().isEmpty()) || ModelUtils.isDisallowAdditionalPropertiesIfNotPresent() || Boolean.valueOf(false).equals(ref.getAdditionalProperties())) { // has at least one property
                   if (ModelUtils.hasSelfReference(openAPI, ref)) {
                         // it's self referencing so returning itself instead
                         return schema;
@@ -328,15 +327,15 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
                     }
                 } else { // free form object (type: object)
                     return unaliasSchema(allSchemas.get(ModelUtils.getSimpleRef(schema.get$ref())),
-                            importMappings);
+                    Collections.emptyMap());
                 }
             } else {
-                return unaliasSchema(allSchemas.get(ModelUtils.getSimpleRef(schema.get$ref())), importMappings);
+                return unaliasSchema(allSchemas.get(ModelUtils.getSimpleRef(schema.get$ref())), Collections.emptyMap());
             }
         }
     return schema;
   }
-
+  
   @Override
   public CodegenModel fromModel(String name, Schema schema) {
       Map<String, Schema> allDefinitions = ModelUtils.getSchemas(this.openAPI);
@@ -498,8 +497,8 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
     return "object";
   }
 
-  @Override
-  protected boolean isFreeFormObject(Schema schema) {
+  // allows schema to be null
+  public static boolean isFreeFormObject(Schema schema) {
     if (schema == null) {
         return false;
     }
@@ -517,7 +516,7 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
     if ("object".equals(schema.getType())) {
         // no properties
         if ((schema.getProperties() == null || schema.getProperties().isEmpty())) {
-            Schema addlProps = ModelUtils.getAdditionalProperties(openAPI, schema);
+            Schema addlProps = ModelUtils.getAdditionalProperties(schema);
 
             if (schema.getExtensions() != null && schema.getExtensions().containsKey("x-is-free-form")) {
                 // User has hard-coded vendor extension to handle free-form evaluation.
