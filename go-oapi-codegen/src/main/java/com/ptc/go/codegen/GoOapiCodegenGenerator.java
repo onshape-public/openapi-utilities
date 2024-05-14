@@ -200,7 +200,7 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
       if (addlProps == null) {
           Map<String, Object> exts = model.getExtensions();
           if(exts == null) {
-              exts = new HashMap();
+              exts = new HashMap<>();
               model.setExtensions(exts);
           }
           exts.put("x-is-free-form", false);
