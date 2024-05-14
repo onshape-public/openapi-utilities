@@ -278,7 +278,7 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
   }
   @Override
   public Schema unaliasSchema(Schema schema) {
-    return unaliasSchema(schema, Collections.emptyMap());
+        return unaliasSchema(schema, Collections.emptyMap());
   }
 
   public Schema unaliasSchema(Schema schema, Map<String, String> importMappings) {
@@ -303,7 +303,7 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
                     return schema; // generate a model extending array
                 } else {
                     return unaliasSchema(allSchemas.get(ModelUtils.getSimpleRef(schema.get$ref())),
-                    Collections.emptyMap());
+                    importMappings);
                 }
             } else if (ModelUtils.isComposedSchema(ref)) {
                 return schema;
@@ -316,7 +316,7 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
                     } else {
                         // treat it as a typical map
                         return unaliasSchema(allSchemas.get(ModelUtils.getSimpleRef(schema.get$ref())),
-                        Collections.emptyMap());
+                        importMappings);
                     }
                 }
             } else if (ModelUtils.isObjectSchema(ref)) { // model
@@ -331,10 +331,10 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
                     }
                 } else { // free form object (type: object)
                     return unaliasSchema(allSchemas.get(ModelUtils.getSimpleRef(schema.get$ref())),
-                    Collections.emptyMap());
+                    importMappings);
                 }
             } else {
-                return unaliasSchema(allSchemas.get(ModelUtils.getSimpleRef(schema.get$ref())), Collections.emptyMap());
+                return unaliasSchema(allSchemas.get(ModelUtils.getSimpleRef(schema.get$ref())), importMappings);
             }
         }
     return schema;
