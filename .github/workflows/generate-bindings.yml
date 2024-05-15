@@ -83,6 +83,10 @@ jobs:
            find . -type f ! \( ${artifactOutput} \) -delete
            cd ./..
           fi
+      - name: Setup Go tools
+        run: | 
+          go install golang.org/x/tools/cmd/goimports@latest
+          echo "PATH=$PATH:/home/runner/go/bin" >> $GITHUB_ENV
       - name: Generate bindings
         id: gb
         run: |
