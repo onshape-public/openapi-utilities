@@ -5,7 +5,7 @@
     <artifactId>go-oapi-codegen-openapi-generator</artifactId>
     <packaging>jar</packaging>
     <name>go-oapi-codegen-openapi-generator</name>
-    <version>0.1.14</version>
+    <version>0.1.15</version>
     <build>
         <plugins>
             <plugin>
