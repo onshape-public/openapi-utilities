@@ -40,8 +40,8 @@ func main() {
     {{paramName}} := {{{vendorExtensions.x-go-example}}} // {{{dataType}}} | {{{description}}}{{^required}} (optional){{/required}}{{#defaultValue}} (default to {{{.}}}){{/defaultValue}}
     {{/allParams}}
 
-    configuration := {{goImportAlias}}.NewConfiguration()
-    apiClient := {{goImportAlias}}.NewAPIClient(configuration)
+    apiConfiguration := {{goImportAlias}}.NewAPIConfiguration()
+    apiClient := {{goImportAlias}}.NewAPIClient(apiConfiguration)
     resp, r, err := apiClient.{{classname}}.{{operationId}}(context.Background(){{#pathParams}}, {{paramName}}{{/pathParams}}){{#allParams}}{{^isPathParam}}.{{vendorExtensions.x-export-param-name}}({{paramName}}){{/isPathParam}}{{/allParams}}.Execute()
     if err != nil {
         fmt.Fprintf(os.Stderr, "Error when calling `{{classname}}.{{operationId}}``: %v\n", err)
