@@ -195,7 +195,7 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
   }
 
   private void fixModelFreeform(Schema model) {
-    if (ModelUtils.isDisallowAdditionalPropertiesIfNotPresent() && ModelUtils.isFreeFormObject(openAPI, model)) {
+    if (ModelUtils.isDisallowAdditionalPropertiesIfNotPresent()) {
       Schema addlProps = ModelUtils.getAdditionalProperties(openAPI, model);
       if (addlProps == null) {
           Map<String, Object> exts = model.getExtensions();
