@@ -82,7 +82,7 @@ public class CustomNormalizer extends org.openapitools.codegen.OpenAPINormalizer
     // when set (e.g. operationId:getPetById, addPet), filter out (or remove) everything else
     final String FILTER = "FILTER";
     HashSet<String> operationIdFilters = new HashSet<>();
-  
+
     public CustomNormalizer(OpenAPI openAPI, Map<String, String> inputRules) {
         super(openAPI, inputRules);
     }
@@ -268,7 +268,7 @@ public class CustomNormalizer extends org.openapitools.codegen.OpenAPINormalizer
 
         List<Schema> oneOfSchemas = schema.getOneOf();
         if (oneOfSchemas != null) {
-            if (oneOfSchemas.removeIf(oneOf -> isNullTypeSchema(oneOf))) {
+            if (oneOfSchemas.removeIf(oneOf -> isNullTypeSchema(openAPI,oneOf))) {
                 schema.setNullable(true);
 
                 // if only one element left, simplify to just the element (schema)
@@ -298,7 +298,7 @@ public class CustomNormalizer extends org.openapitools.codegen.OpenAPINormalizer
 
         List<Schema> anyOfSchemas = schema.getAnyOf();
         if (anyOfSchemas != null) {
-            if (anyOfSchemas.removeIf(anyOf -> isNullTypeSchema(anyOf))) {
+            if (anyOfSchemas.removeIf(anyOf -> isNullTypeSchema(openAPI,anyOf))) {
                 schema.setNullable(true);
             }
 
