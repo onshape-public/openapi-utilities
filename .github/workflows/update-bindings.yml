@@ -57,7 +57,7 @@ jobs:
          fi
          
          openApiUrl="${url}/api/openapi"
-         echo "Downloading Open API spec at ${openApiUrl}"
+         echo "Downloading Open API spec from ${openApiUrl}"
          curl -X 'GET' -G ${openApiUrl} ${authentication_args} -d restUserRole=${userRole} ${versionAlias} ${operationIdSet} -H 'accept: */*' > ${{ github.workspace }}/openapi.json
       - name: Check version status
         id: fetchStatus
