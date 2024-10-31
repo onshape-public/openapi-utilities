@@ -23,10 +23,13 @@ jobs:
         run: npm install -g json
       - name: Fetch specification
         run: |
+         repoOnshapeUrl="${{ secrets.ONSHAPE_URL }}"
+         repoUserRole="${{ secrets.USER_ROLE }}"
+
          fetchSettings=$(cat ${{ github.workspace }}/bindgen-config.json | json fetch)
-         url=$(echo "${fetchSettings}" | json url)
+         url="${repoOnshapeUrl:-$(echo ${fetchSettings} | json url)}"
          versionAlias=$(echo "${fetchSettings}" | json versionAlias)
-         userRole=$(echo "${fetchSettings}" | json userRole)
+         userRole="${repoUserRole:-$(echo ${fetchSettings} | json userRole)}"
          operationIds=$(echo "${fetchSettings}" | json operationIds)
          
          if [ "${versionAlias}" = null ]; then
@@ -43,8 +46,19 @@ jobs:
               operationIdSet="${operationIdSet} -d operationIds=$line"
           done <<< $(echo "${operationIds}" | json -ga)
          fi
+
+         defaultUserRole="PUBLIC"
+         authentication_args=""
+         if [[ "${userRole}" == "INTERNAL" ]]; then
+              authentication_args="-u ${{ secrets.ONSHAPE_API_ACCESS_KEY }}:${{ secrets.ONSHAPE_API_SECRET_KEY }}"
+         elif [[ "${userRole}" != "PUBLIC" ]]; then
+              echo "Incorrect userRole \"${userRole}\", defaulting to ${defaultUserRole}"
+              userRole="${defaultUserRole}"
+         fi
          
-         curl -X 'GET' -G ${url}'/api/openapi' -d restUserRole=${userRole} ${versionAlias} ${operationIdSet} -H 'accept: */*' > ${{ github.workspace }}/openapi.json
+         openApiUrl="${url}/api/openapi"
+         echo "Downloading Open API spec from ${openApiUrl}"
+         curl -X 'GET' -G ${openApiUrl} ${authentication_args} -d restUserRole=${userRole} ${versionAlias} ${operationIdSet} -H 'accept: */*' > ${{ github.workspace }}/openapi.json
       - name: Check version status
         id: fetchStatus
         run: |
