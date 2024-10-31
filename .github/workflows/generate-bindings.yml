@@ -29,6 +29,8 @@ jobs:
         uses: actions/setup-go@v5.0.2
         with:
           go-version: '1.22'
+      - name: Install goimports CLI
+        run: go install golang.org/x/tools/cmd/goimports@latest
       - name: Download OpenAPI generator
         run: |
           generatorUrl=$(cat ${{ github.workspace }}/bindgen-config.json | json generate.generatorUrl)
@@ -98,7 +100,7 @@ jobs:
           fi
 
           java -cp ${repo}/go-oapi-codegen.jar:${repo}/openapi-generator-cli.jar org.openapitools.codegen.OpenAPIGenerator generate -i ${repo}/openapi.json.tmp -g go-oapi-codegen -o ${repo}/onshape --type-mappings DateTime=JSONTime --additional-properties=packageVersion=${packageVersion} --additional-properties=useOneOfDiscriminatorLookup=true --global-property apiTests=false -c ${repo}/openapi_config.json
-          go fmt ${repo}/onshape
+          goimports -w ${repo}/onshape
 
           rm openapi.json.tmp
           rm ${{ github.workspace }}/openapi-generator-cli.jar

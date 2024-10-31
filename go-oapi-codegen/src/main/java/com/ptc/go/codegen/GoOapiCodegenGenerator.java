@@ -195,8 +195,8 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
   }
 
   private void fixModelFreeform(Schema model) {
-    if (ModelUtils.isDisallowAdditionalPropertiesIfNotPresent() && ModelUtils.isFreeFormObject(openAPI, model)) {
-      Schema addlProps = ModelUtils.getAdditionalProperties(openAPI, model);
+    if (ModelUtils.isDisallowAdditionalPropertiesIfNotPresent() && ModelUtils.isFreeFormObject(model, openAPI)) {
+      Schema addlProps = ModelUtils.getAdditionalProperties(model);
       if (addlProps == null) {
           Map<String, Object> exts = model.getExtensions();
           if(exts == null) {
@@ -245,7 +245,7 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
           }
           return "[]" + typDecl;
       } else if (ModelUtils.isMapSchema(p)) {
-          Schema inner = getAdditionalProperties(p);
+          Schema inner = ModelUtils.getAdditionalProperties(p);
           return getSchemaType(p) + "[string]" + getTypeDeclaration(unaliasSchema(inner, Collections.emptyMap()));
       }
       //return super.getTypeDeclaration(p);
@@ -277,8 +277,9 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
       return toModelName(openAPIType);
   }
 
-  @Override
-  public Schema unaliasSchema(Schema schema, Map<String, String> importMappings) {
+  // TODO: consider removing
+  // TODO: since it is no longer part of GoClientCodegen code generator, maybe we should remove it
+  private Schema unaliasSchema(Schema schema, Map<String, String> importMappings) {
       Map<String, Schema> allSchemas = ModelUtils.getSchemas(openAPI);
         if (allSchemas == null || allSchemas.isEmpty()) {
             return schema;
@@ -498,7 +499,9 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
     return "object";
   }
 
-  @Override
+  
+  // TODO: consider removing
+  // TODO: since it is no longer part of GoClientCodegen code generator, maybe we should remove it
   protected boolean isFreeFormObject(Schema schema) {
     if (schema == null) {
         return false;
@@ -517,7 +520,7 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
     if ("object".equals(schema.getType())) {
         // no properties
         if ((schema.getProperties() == null || schema.getProperties().isEmpty())) {
-            Schema addlProps = ModelUtils.getAdditionalProperties(openAPI, schema);
+            Schema addlProps = ModelUtils.getAdditionalProperties(schema);
 
             if (schema.getExtensions() != null && schema.getExtensions().containsKey("x-is-free-form")) {
                 // User has hard-coded vendor extension to handle free-form evaluation.
