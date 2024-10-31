@@ -277,7 +277,8 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
       return toModelName(openAPIType);
   }
 
-
+  // TODO: consider removing
+  // TODO: since it is no longer part of GoClientCodegen code generator, maybe we should remove it
   private Schema unaliasSchema(Schema schema, Map<String, String> importMappings) {
       Map<String, Schema> allSchemas = ModelUtils.getSchemas(openAPI);
         if (allSchemas == null || allSchemas.isEmpty()) {
@@ -498,6 +499,9 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
     return "object";
   }
 
+  
+  // TODO: consider removing
+  // TODO: since it is no longer part of GoClientCodegen code generator, maybe we should remove it
   protected boolean isFreeFormObject(Schema schema) {
     if (schema == null) {
         return false;
