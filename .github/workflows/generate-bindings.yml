@@ -24,7 +24,7 @@ jobs:
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'microsoft'
           java-version: '21'
       - name: Setup Go environment
         uses: actions/setup-go@v5.0.2
