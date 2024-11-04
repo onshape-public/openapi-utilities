@@ -13,10 +13,10 @@ jobs:
   fetch:
     runs-on: ubuntu-latest
     steps:      
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           token: ${{ secrets.BOT_ACCESS_TOKEN }}
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
       - name: Install json CLI
@@ -69,8 +69,8 @@ jobs:
            echo 'Specification was outdated; committing new specification.'
            changedVersion=$(cat ${{ github.workspace }}/openapi.json | json info.version)
            git commit -m "Fetch latest OpenAPI specification (version ${changedVersion})"
-           echo ::set-output name=changes::true
-           echo ::set-output name=rev-sha::$(git rev-parse HEAD)
+           echo "changes=true" >> $GITHUB_OUTPUT
+           echo "rev-sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
          else
            echo 'Specification was not outdated'
          fi

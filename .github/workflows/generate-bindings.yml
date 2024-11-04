@@ -13,20 +13,21 @@ jobs:
   generate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           token: ${{ secrets.BOT_ACCESS_TOKEN }}
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
       - name: Install json CLI
         run: npm install -g json
-      - name: Set up JDK 1.8
-        uses: actions/setup-java@v1
+      - name: Set up JDK
+        uses: actions/setup-java@v4
         with:
-          java-version: '1.8'
+          distribution: 'temurin'
+          java-version: '21'
       - name: Setup Go environment
-        uses: actions/setup-go@v5.0.2
+        uses: actions/setup-go@v5
         with:
           go-version: '1.22'
       - name: Install goimports CLI
@@ -69,8 +70,8 @@ jobs:
             fi
           done
           changedVersion=$(cat ${repo}/openapi.json | json info.version)
-          echo '::set-output name=change::'"${changedVersion}"   
-          echo '::set-output name=random-ext::'"${RANDOM}"
+          echo "change=${changedVersion}" >> $GITHUB_OUTPUT
+          echo "random-ext=${RANDOM}" >> $GITHUB_OUTPUT
       - name: Remove old files
         run: |
           artifacts=$(cat ./onshape/.openapi-generator-ignore | grep "^[^#]")
@@ -106,7 +107,7 @@ jobs:
           rm ${{ github.workspace }}/openapi-generator-cli.jar
           git add --all
           if [[ `git status --porcelain` ]]; then
-           echo ::set-output name=changes-occurred::true
+           echo "changes-occurred=true" >> $GITHUB_OUTPUT
            echo 'Changes occured; creating pull request.'
           else
            echo 'No new changes; bindings are the same.'
