@@ -24,5 +24,5 @@ do
   fi
 done
 changedVersion=$(cat ${repo}/openapi.json | json info.version)
-echo '::set-output name=change::'"${changedVersion}"   
-echo '::set-output name=random-ext::'"${RANDOM}"
+echo "change=${changedVersion}" >> $GITHUB_OUTPUT
+echo "random-ext=${RANDOM}" >> $GITHUB_OUTPUT
