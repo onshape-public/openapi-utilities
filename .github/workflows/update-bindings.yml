@@ -50,6 +50,7 @@ jobs:
          defaultUserRole="PUBLIC"
          authentication_args=""
          if [[ "${userRole}" == "INTERNAL" ]]; then
+              echo "Internal user role, authentication required"
               authentication_args="-u ${{ secrets.ONSHAPE_API_ACCESS_KEY }}:${{ secrets.ONSHAPE_API_SECRET_KEY }}"
          elif [[ "${userRole}" != "PUBLIC" ]]; then
               echo "Incorrect userRole \"${userRole}\", defaulting to ${defaultUserRole}"
