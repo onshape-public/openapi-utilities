@@ -9,6 +9,10 @@ on:
         required: true
       ONSHAPE_API_SECRET_KEY:
         required: true
+      ONSHAPE_URL:
+        required: false
+      USER_ROLE:
+        required: false
 jobs:
   fetch:
     runs-on: ubuntu-latest
