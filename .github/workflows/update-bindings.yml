@@ -23,14 +23,19 @@ jobs:
         run: npm install -g json
       - name: Fetch specification
         run: |
-         repoOnshapeUrl="${{ secrets.ONSHAPE_URL }}"
-         repoUserRole="${{ secrets.USER_ROLE }}"
-
          fetchSettings=$(cat ${{ github.workspace }}/bindgen-config.json | json fetch)
-         url="${repoOnshapeUrl:-$(echo ${fetchSettings} | json url)}"
+         url="${{ secrets.ONSHAPE_URL }}"
          versionAlias=$(echo "${fetchSettings}" | json versionAlias)
-         userRole="${repoUserRole:-$(echo ${fetchSettings} | json userRole)}"
+         userRole="${{ secrets.USER_ROLE }}"
          operationIds=$(echo "${fetchSettings}" | json operationIds)
+
+         if [ -z $url ]; then
+            url="$(echo ${fetchSettings} | json url)"
+         fi
+
+         if [ -z $userRole ]; then
+            userRole="$(echo ${fetchSettings} | json userRole)"
+         fi
          
          if [ "${versionAlias}" = null ]; then
            versionAlias=
