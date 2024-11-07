@@ -688,7 +688,7 @@ public class InlineModelFlattener {
                 }
             }
             if (ModelUtils.isMapSchema(property)) {
-                Schema inner = ModelUtils.getAdditionalProperties(property);
+                Schema inner = ModelUtils.getAdditionalProperties(openAPI, property);
                 if (inner instanceof ObjectSchema) {
                     ObjectSchema op = (ObjectSchema) inner;
                     if (op.getProperties() != null && op.getProperties().size() > 0) {
