@@ -1,5 +1,3 @@
-package com.ptc.go.codegen;
-
 /*
  * Copyright 2018 OpenAPI-Generator Contributors (https://openapi-generator.tech)
  * Copyright 2018 SmartBear Software
@@ -17,33 +15,38 @@ package com.ptc.go.codegen;
  * limitations under the License.
  */
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
-import com.fasterxml.jackson.databind.MapperFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.swagger.v3.core.util.Json;
-import io.swagger.v3.oas.models.*;
-import io.swagger.v3.oas.models.callbacks.Callback;
-import io.swagger.v3.oas.models.media.*;
-import io.swagger.v3.oas.models.parameters.Parameter;
-import io.swagger.v3.oas.models.parameters.RequestBody;
-import io.swagger.v3.oas.models.responses.ApiResponse;
-import io.swagger.v3.oas.models.responses.ApiResponses;
-import org.openapitools.codegen.utils.ModelUtils;
-import org.openapitools.codegen.utils.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+ package com.ptc.go.codegen;
 
-import java.util.*;
-import java.util.stream.Collectors;
-
-public class InlineModelFlattener {
+ import com.fasterxml.jackson.core.JsonProcessingException;
+ import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
+ import com.fasterxml.jackson.databind.MapperFeature;
+ import com.fasterxml.jackson.databind.ObjectMapper;
+ import io.swagger.v3.core.util.Json;
+ import io.swagger.v3.oas.models.*;
+ import io.swagger.v3.oas.models.PathItem.HttpMethod;
+ import io.swagger.v3.oas.models.callbacks.Callback;
+ import io.swagger.v3.oas.models.media.*;
+ import io.swagger.v3.oas.models.parameters.Parameter;
+ import io.swagger.v3.oas.models.parameters.RequestBody;
+ import io.swagger.v3.oas.models.responses.ApiResponse;
+ import io.swagger.v3.oas.models.responses.ApiResponses;
+ import org.apache.commons.lang3.StringUtils;
+ import org.openapitools.codegen.utils.ModelUtils;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ 
+ import java.util.*;
+ 
+ public class InlineModelFlattener {
     private OpenAPI openAPI;
     private Map<String, Schema> addedModels = new HashMap<>();
     private Map<String, String> generatedSignature = new HashMap<>();
     private Map<String, String> inlineSchemaNameMapping = new HashMap<>();
+    private Map<String, String> inlineSchemaOptions = new HashMap<>();
     private Set<String> inlineSchemaNameMappingValues = new HashSet<>();
     public boolean resolveInlineEnums = false;
+public boolean skipSchemaReuse = false; // skip reusing inline schema if set to true
+public Boolean refactorAllOfInlineSchemas = null; // refactor allOf inline schemas into $ref
 
     // structure mapper sorts properties alphabetically on write to ensure models are
     // serialized consistently for lookup of existing models
@@ -60,9 +63,35 @@ public class InlineModelFlattener {
 
     final Logger LOGGER = LoggerFactory.getLogger(InlineModelFlattener.class);
 
+    public InlineModelFlattener() {
+        this.inlineSchemaOptions.put("ARRAY_ITEM_SUFFIX", "_inner");
+        this.inlineSchemaOptions.put("MAP_ITEM_SUFFIX", "_value");
+    }
+
     public void setInlineSchemaNameMapping(Map inlineSchemaNameMapping) {
         this.inlineSchemaNameMapping = inlineSchemaNameMapping;
         this.inlineSchemaNameMappingValues = new HashSet<>(inlineSchemaNameMapping.values());
+    }
+
+    public void setInlineSchemaOptions(Map inlineSchemaOptions) {
+        this.inlineSchemaOptions.putAll(inlineSchemaOptions);
+
+        if ("true".equalsIgnoreCase(
+                this.inlineSchemaOptions.getOrDefault("SKIP_SCHEMA_REUSE", "false"))) {
+            this.skipSchemaReuse = true;
+        }
+
+        if (this.inlineSchemaOptions.containsKey("REFACTOR_ALLOF_INLINE_SCHEMAS")) {
+            this.refactorAllOfInlineSchemas = Boolean.valueOf(this.inlineSchemaOptions.get("REFACTOR_ALLOF_INLINE_SCHEMAS"));
+        } else {
+            // not set so default to null;
+        }
+
+        if (this.inlineSchemaOptions.containsKey("RESOLVE_INLINE_ENUMS")) {
+            this.resolveInlineEnums = Boolean.valueOf(this.inlineSchemaOptions.get("RESOLVE_INLINE_ENUMS"));
+        } else {
+            // not set so default to null;
+        }
     }
 
     void flatten(OpenAPI openAPI) {
@@ -82,7 +111,7 @@ public class InlineModelFlattener {
 
     /**
      * Flatten inline models in Paths
-     */
+    */
     private void flattenPaths() {
         Paths paths = openAPI.getPaths();
         if (paths == null) {
@@ -91,62 +120,97 @@ public class InlineModelFlattener {
 
         for (Map.Entry<String, PathItem> pathsEntry : paths.entrySet()) {
             PathItem path = pathsEntry.getValue();
-            List<Operation> operations = new ArrayList<>(path.readOperations());
+            List<Map.Entry<HttpMethod, Operation>> toFlatten = new ArrayList<>(path.readOperationsMap().entrySet());
 
             // use path name (e.g. /foo/bar) and HTTP verb to come up with a name
             // in case operationId is not defined later in other methods
             String pathname = pathsEntry.getKey();
-            String name = pathname;
-            if (path.getDelete() != null) {
-                name = pathname + "_delete";
-            } else if (path.getGet() != null) {
-                name = pathname + "_get";
-            } else if (path.getHead() != null) {
-                name = pathname + "_head";
-            } else if (path.getOptions() != null) {
-                name = pathname + "_options";
-            } else if (path.getPatch() != null) {
-                name = pathname + "_patch";
-            } else if (path.getPost() != null) {
-                name = pathname + "_post";
-            } else if (path.getPut() != null) {
-                name = pathname + "_put";
-            } else if (path.getTrace() != null) {
-                name = pathname + "_trace";
-            } else {
-                // no HTTP verb defined?
-                //throw new RuntimeException("No HTTP verb found/detected in the inline model resolver");
-            }
 
             // Include callback operation as well
-            for (Operation operation : path.readOperations()) {
+            for (Map.Entry<HttpMethod, Operation> operationEntry : new LinkedHashMap<>(path.readOperationsMap()).entrySet()) {
+                Operation operation = operationEntry.getValue();
                 Map<String, Callback> callbacks = operation.getCallbacks();
                 if (callbacks != null) {
-                    operations.addAll(callbacks.values().stream()
-                            .flatMap(callback -> callback.values().stream())
-                            .flatMap(pathItem -> pathItem.readOperations().stream())
-                            .collect(Collectors.toList()));
+                    for (Map.Entry<String, Callback> callbackEntry : callbacks.entrySet()) {
+                        Callback callback = callbackEntry.getValue();
+                        for (Map.Entry<String, PathItem> pathItemEntry : callback.entrySet()) {
+                            PathItem pathItem = pathItemEntry.getValue();
+                            toFlatten.addAll(pathItem.readOperationsMap().entrySet());
+                        }
+                    }
                 }
             }
 
-            for (Operation operation : operations) {
-                flattenRequestBody(name, operation);
-                flattenParameters(name, operation);
-                flattenResponses(name, operation);
+            // flatten path-level parameters
+            flattenParameters(pathname, path.getParameters(), null);
+
+            // flatten parameters for each operation
+            for (Map.Entry<HttpMethod, Operation> operationEntry : toFlatten) {
+                Operation operation = operationEntry.getValue();
+                String inlineSchemaName = this.getInlineSchemaName(operationEntry.getKey(), pathname);
+                flattenRequestBody(inlineSchemaName, operation);
+                flattenParameters(inlineSchemaName, operation.getParameters(), operation.getOperationId());
+                flattenResponses(inlineSchemaName, operation);
             }
         }
     }
 
+    private String getInlineSchemaName(HttpMethod httpVerb, String pathname) {
+        String name = pathname;
+        if (httpVerb.equals(HttpMethod.DELETE)) {
+            name += "_delete";
+        } else if (httpVerb.equals(HttpMethod.GET)) {
+            name += "_get";
+        } else if (httpVerb.equals(HttpMethod.HEAD)) {
+            name += "_head";
+        } else if (httpVerb.equals(HttpMethod.OPTIONS)) {
+            name += "_options";
+        } else if (httpVerb.equals(HttpMethod.PATCH)) {
+            name += "_patch";
+        } else if (httpVerb.equals(HttpMethod.POST)) {
+            name += "_post";
+        } else if (httpVerb.equals(HttpMethod.PUT)) {
+            name += "_put";
+        } else if (httpVerb.equals(HttpMethod.TRACE)) {
+            name += "_trace";
+        } else {
+            // no HTTP verb defined?
+            // throw new RuntimeException("No HTTP verb found/detected in the inline model
+            // resolver");
+        }
+        return name;
+    }
+
     /**
      * Return false if model can be represented by primitives e.g. string, object
-     * without properties, array or map of other model (model contanier), etc.
-     * <p>
-     * Return true if a model should be generated e.g. object with properties,
-     * enum, oneOf, allOf, anyOf, etc.
-     *
-     * @param schema target schema
-     */
+    * without properties, array or map of other model (model contanier), etc.
+    * <p>
+    * Return true if a model should be generated e.g. object with properties,
+    * enum, oneOf, allOf, anyOf, etc.
+    *
+    * @param schema target schema
+    */
     private boolean isModelNeeded(Schema schema) {
+        return isModelNeeded(schema, new HashSet<>());
+    }
+
+    /**
+     * Return false if model can be represented by primitives e.g. string, object
+    * without properties, array or map of other model (model contanier), etc.
+    * <p>
+    * Return true if a model should be generated e.g. object with properties,
+    * enum, oneOf, allOf, anyOf, etc.
+    *
+    * @param schema         target schema
+    * @param visitedSchemas Visited schemas
+    */
+    private boolean isModelNeeded(Schema schema, Set<Schema> visitedSchemas) {
+        if (visitedSchemas.contains(schema)) { // circular reference
+            return true;
+        } else {
+            visitedSchemas.add(schema);
+        }
+
         if (resolveInlineEnums && schema.getEnum() != null && schema.getEnum().size() > 0) {
             return true;
         }
@@ -156,23 +220,24 @@ public class InlineModelFlattener {
                 return true;
             }
         }
-        if (schema instanceof ComposedSchema) {
-            // allOf, anyOf, oneOf
-            ComposedSchema m = (ComposedSchema) schema;
-            if (m.getAllOf() != null && !m.getAllOf().isEmpty()) {
-                // check to ensure at least of the allOf item is model
-                for (Schema inner : m.getAllOf()) {
-                    if (isModelNeeded(ModelUtils.getReferencedSchema(openAPI, inner))) {
+        if (ModelUtils.isComposedSchema(schema)) {
+        
+
+            if (schema.getAllOf() != null && !schema.getAllOf().isEmpty()) {
+                // check to ensure at least one of the allOf item is model
+                for (Object inner : schema.getAllOf()) {
+                    if (isModelNeeded(ModelUtils.getReferencedSchema(openAPI, (Schema) inner))) {
                         return true;
                     }
                 }
                 // allOf items are all non-model (e.g. type: string) only
                 return false;
             }
-            if (m.getAnyOf() != null && !m.getAnyOf().isEmpty()) {
+
+            if (schema.getAnyOf() != null && !schema.getAnyOf().isEmpty()) {
                 return true;
             }
-            if (m.getOneOf() != null && !m.getOneOf().isEmpty()) {
+            if (schema.getOneOf() != null && !schema.getOneOf().isEmpty()) {
                 return true;
             }
         }
@@ -182,18 +247,18 @@ public class InlineModelFlattener {
 
     /**
      * Recursively gather inline models that need to be generated and
-     * replace inline schemas with $ref to schema to-be-generated.
-     *
-     * @param schema      target schema
-     * @param modelPrefix model name (usually the prefix of the inline model name)
-     */
-    private void gatherInlineModels(Schema schema, String modelPrefix) {
+    * replace inline schemas with $ref to schema to-be-generated.
+    *
+    * @param schema      target schema
+    * @param modelPrefix model name (usually the prefix of the inline model name)
+    */
+    private void gatherInlineModels(Schema schema, String modelPrefix) { 
         if (schema.get$ref() != null) {
             // if ref already, no inline schemas should be present but check for
             // any to catch OpenAPI violations
             if (isModelNeeded(schema) || "object".equals(schema.getType()) ||
                     schema.getProperties() != null || schema.getAdditionalProperties() != null ||
-                    schema instanceof ComposedSchema) {
+                    ModelUtils.isComposedSchema(schema)) {
                 LOGGER.error("Illegal schema found with $ref combined with other properties," +
                         " no properties should be defined alongside a $ref:\n " + schema.toString());
             }
@@ -205,38 +270,62 @@ public class InlineModelFlattener {
         if (schema.getType() == null || "object".equals(schema.getType())) {
             // Check properties and recurse, each property could be its own inline model
             Map<String, Schema> props = schema.getProperties();
+            Queue<Map.Entry<String, Schema>> queue = new LinkedList<>();
+
+            // Add key-value pairs from the Map to the Queue
             if (props != null) {
-                for (String propName : props.keySet()) {
-                    Schema prop = props.get(propName);
+            for (Map.Entry<String, Schema> entry : props.entrySet()) {
+                queue.offer(entry);  
+            }
+            }
+            
+            while (!queue.isEmpty()) {
+                Map.Entry<String, Schema> pair = queue.poll();  // Retrieve and remove from the queue
+                    String propName = pair.getKey();
+                    Schema prop = pair.getValue();
+                    if (prop == null) {
+                        continue;
+                    }
+
                     String schemaName = resolveModelName(prop.getTitle(), modelPrefix + "_" + propName);
                     // Recurse to create $refs for inner models
                     gatherInlineModels(prop, schemaName);
                     if (isModelNeeded(prop)) {
                         // If this schema should be split into its own model, do so
                         Schema refSchema = this.makeSchemaInComponents(schemaName, prop);
+                        if (!props.containsKey(propName)) {
                         props.put(propName, refSchema);
-                    } else if (prop instanceof ComposedSchema) {
-                        ComposedSchema m = (ComposedSchema) prop;
-                        if (m.getAllOf() != null && m.getAllOf().size() == 1 &&
-                                !(m.getAllOf().get(0).getType() == null || "object".equals(m.getAllOf().get(0).getType()))) {
+                        queue.offer(new AbstractMap.SimpleEntry<>(propName, refSchema));
+                        }
+
+                    } else if (ModelUtils.isComposedSchema(prop)) {
+                        if (prop.getAllOf() != null && prop.getAllOf().size() == 1 &&
+                                !(((Schema) prop.getAllOf().get(0)).getType() == null ||
+                                        "object".equals(((Schema) prop.getAllOf().get(0)).getType()))) {
                             // allOf with only 1 type (non-model)
                             LOGGER.info("allOf schema used by the property `{}` replaced by its only item (a type)", propName);
-                            props.put(propName, m.getAllOf().get(0));
+                            if (!props.containsKey(propName)) {
+                            props.put(propName, (Schema) prop.getAllOf().get(0));
+                            queue.offer(new AbstractMap.SimpleEntry<>(propName, (Schema) prop.getAllOf().get(0)));
+                            }
+            
                         }
                     }
                 }
-            }
+            
             // Check additionalProperties for inline models
             if (schema.getAdditionalProperties() != null) {
                 if (schema.getAdditionalProperties() instanceof Schema) {
                     Schema inner = (Schema) schema.getAdditionalProperties();
-                    String schemaName = resolveModelName(schema.getTitle(), modelPrefix + "_value");
-                    // Recurse to create $refs for inner models
-                    gatherInlineModels(inner, schemaName);
-                    if (isModelNeeded(inner)) {
-                        // If this schema should be split into its own model, do so
-                        Schema refSchema = this.makeSchemaInComponents(schemaName, inner);
-                        schema.setAdditionalProperties(refSchema);
+                    if (inner != null) {
+                        String schemaName = resolveModelName(inner.getTitle(), modelPrefix + this.inlineSchemaOptions.get("MAP_ITEM_SUFFIX"));
+                        // Recurse to create $refs for inner models
+                        gatherInlineModels(inner, schemaName);
+                        if (isModelNeeded(inner)) {
+                            // If this schema should be split into its own model, do so
+                            Schema refSchema = this.makeSchemaInComponents(schemaName, inner);
+                            schema.setAdditionalProperties(refSchema);
+                        }
                     }
                 }
             }
@@ -253,110 +342,120 @@ public class InlineModelFlattener {
             return;
         }
         // Check array items
-        if (schema instanceof ArraySchema) {
-            ArraySchema array = (ArraySchema) schema;
-            Schema items = array.getItems();
-            /*if (items.getTitle() != null) {
-                LOGGER.info("schema title {}", items);
-                throw new RuntimeException("getTitle for array item is not null");
-            }*/
-            if (items == null) {
-                LOGGER.error("Illegal schema found with array type but no items," +
-                        " items must be defined for array schemas:\n " + schema.toString());
+        if (ModelUtils.isArraySchema(schema)) {
+            Schema items = ModelUtils.getSchemaItems(schema);
+            if (items == null && schema.getPrefixItems() == null) {
+                LOGGER.debug("Incorrect array schema with no items, prefixItems: {}", schema.toString());
                 return;
             }
-            String schemaName = resolveModelName(items.getTitle(), modelPrefix + "_inner");
+
+            if (items == null) {
+                LOGGER.debug("prefixItems in array schema is not supported at the moment: {}",  schema.toString());
+                return;
+            }
+            String schemaName = resolveModelName(items.getTitle(), modelPrefix + this.inlineSchemaOptions.get("ARRAY_ITEM_SUFFIX"));
 
             // Recurse to create $refs for inner models
             gatherInlineModels(items, schemaName);
 
             if (isModelNeeded(items)) {
                 // If this schema should be split into its own model, do so
-                Schema refSchema = this.makeSchemaInComponents(schemaName, items);
-                array.setItems(refSchema);
+                schema.setItems(this.makeSchemaInComponents(schemaName, items));
             }
         }
         // Check allOf, anyOf, oneOf for inline models
-        if (schema instanceof ComposedSchema) {
-            ComposedSchema m = (ComposedSchema) schema;
-            if (m.getAllOf() != null) {
+        if (ModelUtils.isComposedSchema(schema)) {
+            if (schema.getAllOf() != null) {
                 List<Schema> newAllOf = new ArrayList<Schema>();
                 boolean atLeastOneModel = false;
-                for (Schema inner : m.getAllOf()) {
-                    String schemaName = resolveModelName(inner.getTitle(), modelPrefix + "_allOf");
+                for (Object inner : schema.getAllOf()) {
+                    if (inner == null) {
+                        continue;
+                    }
+                    String schemaName = resolveModelName(((Schema) inner).getTitle(), modelPrefix + "_allOf");
                     // Recurse to create $refs for inner models
-                    gatherInlineModels(inner, schemaName);
-                    if (isModelNeeded(inner)) {
-                        Schema refSchema = this.makeSchemaInComponents(schemaName, inner);
-                        newAllOf.add(refSchema); // replace with ref
-                        atLeastOneModel = true;
+                    gatherInlineModels((Schema) inner, schemaName);
+                    if (isModelNeeded((Schema) inner)) {
+                        if (Boolean.TRUE.equals(this.refactorAllOfInlineSchemas)) {
+                            newAllOf.add(this.makeSchemaInComponents(schemaName, (Schema) inner)); // replace with ref
+                            atLeastOneModel = true;
+                        } else { // do not refactor allOf inline schemas
+                            newAllOf.add((Schema) inner);
+                            atLeastOneModel = true;
+                        }
                     } else {
-                        newAllOf.add(inner);
+                        newAllOf.add((Schema) inner);
                     }
                 }
                 if (atLeastOneModel) {
-                    m.setAllOf(newAllOf);
+                    schema.setAllOf(newAllOf);
                 } else {
                     // allOf is just one or more types only so do not generate the inline allOf model
-                    if (m.getAllOf().size() == 1) {
-                        // handle earlier in this function when looping through properites
-                    } else if (m.getAllOf().size() > 1) {
+                    if (schema.getAllOf().size() == 1) {
+                        // handle earlier in this function when looping through properties
+                    } else if (schema.getAllOf().size() > 1) {
                         LOGGER.warn("allOf schema `{}` containing multiple types (not model) is not supported at the moment.", schema.getName());
                     } else {
                         LOGGER.error("allOf schema `{}` contains no items.", schema.getName());
                     }
                 }
             }
-            if (m.getAnyOf() != null) {
+            if (schema.getAnyOf() != null) {
                 List<Schema> newAnyOf = new ArrayList<Schema>();
-                for (Schema inner : m.getAnyOf()) {
-                    String schemaName = resolveModelName(inner.getTitle(), modelPrefix + "_anyOf");
+                for (Object inner : schema.getAnyOf()) {
+                    if (inner == null) {
+                        continue;
+                    }
+                    String schemaName = resolveModelName(((Schema) inner).getTitle(), modelPrefix + "_anyOf");
                     // Recurse to create $refs for inner models
-                    gatherInlineModels(inner, schemaName);
-                    if (isModelNeeded(inner)) {
-                        Schema refSchema = this.makeSchemaInComponents(schemaName, inner);
-                        newAnyOf.add(refSchema); // replace with ref
+                    gatherInlineModels((Schema) inner, schemaName);
+                    if (isModelNeeded((Schema) inner)) {
+                        newAnyOf.add(this.makeSchemaInComponents(schemaName, (Schema) inner)); // replace with ref
                     } else {
-                        newAnyOf.add(inner);
+                        newAnyOf.add((Schema) inner);
                     }
                 }
-                m.setAnyOf(newAnyOf);
+                schema.setAnyOf(newAnyOf);
             }
-            if (m.getOneOf() != null) {
+            if (schema.getOneOf() != null) {
                 List<Schema> newOneOf = new ArrayList<Schema>();
-                for (Schema inner : m.getOneOf()) {
-                    String schemaName = resolveModelName(inner.getTitle(), modelPrefix + "_oneOf");
+                for (Object inner : schema.getOneOf()) {
+                    if (inner == null) {
+                        continue;
+                    }
+                    String schemaName = resolveModelName(((Schema) inner).getTitle(), modelPrefix + "_oneOf");
                     // Recurse to create $refs for inner models
-                    gatherInlineModels(inner, schemaName);
-                    if (isModelNeeded(inner)) {
-                        Schema refSchema = this.makeSchemaInComponents(schemaName, inner);
-                        newOneOf.add(refSchema); // replace with ref
+                    gatherInlineModels((Schema) inner, schemaName);
+                    if (isModelNeeded((Schema) inner)) {
+                        newOneOf.add(this.makeSchemaInComponents(schemaName, (Schema) inner)); // replace with ref
                     } else {
-                        newOneOf.add(inner);
+                        newOneOf.add((Schema) inner);
                     }
                 }
-                m.setOneOf(newOneOf);
+                schema.setOneOf(newOneOf);
             }
         }
         // Check not schema
         if (schema.getNot() != null) {
             Schema not = schema.getNot();
-            String schemaName = resolveModelName(schema.getTitle(), modelPrefix + "_not");
-            // Recurse to create $refs for inner models
-            gatherInlineModels(not, schemaName);
-            if (isModelNeeded(not)) {
-                Schema refSchema = this.makeSchemaInComponents(schemaName, not);
-                schema.setNot(refSchema);
+            if (not != null) {
+                String schemaName = resolveModelName(schema.getTitle(), modelPrefix + "_not");
+                // Recurse to create $refs for inner models
+                gatherInlineModels(not, schemaName);
+                if (isModelNeeded(not)) {
+                    Schema refSchema = this.makeSchemaInComponents(schemaName, not);
+                    schema.setNot(refSchema);
+                }
             }
         }
     }
 
     /**
      * Flatten inline models in content
-     *
-     * @param content target content
-     * @param name    backup name if no title is found
-     */
+    *
+    * @param content target content
+    * @param name    backup name if no title is found
+    */
     private void flattenContent(Content content, String name) {
         if (content == null || content.isEmpty()) {
             return;
@@ -377,18 +476,17 @@ public class InlineModelFlattener {
             if (isModelNeeded(schema)) {
                 // If this schema should be split into its own model, do so
                 //Schema refSchema = this.makeSchema(schemaName, schema);
-                Schema refSchema = this.makeSchemaInComponents(schemaName, schema);
-                mediaType.setSchema(refSchema);
+                mediaType.setSchema(this.makeSchemaInComponents(schemaName, schema));
             }
         }
     }
 
     /**
      * Flatten inline models in RequestBody
-     *
-     * @param modelName inline model name prefix
-     * @param operation target operation
-     */
+    *
+    * @param modelName inline model name prefix
+    * @param operation target operation
+    */
     private void flattenRequestBody(String modelName, Operation operation) {
         RequestBody requestBody = operation.getRequestBody();
         if (requestBody == null) {
@@ -399,6 +497,10 @@ public class InlineModelFlattener {
         if (requestBody.get$ref() != null) {
             String ref = ModelUtils.getSimpleRef(requestBody.get$ref());
             requestBody = openAPI.getComponents().getRequestBodies().get(ref);
+
+            if (requestBody == null) {
+                return;
+            }
         }
 
         flattenContent(requestBody.getContent(),
@@ -407,17 +509,22 @@ public class InlineModelFlattener {
 
     /**
      * Flatten inline models in parameters
-     *
-     * @param modelName model name
-     * @param operation target operation
-     */
-    private void flattenParameters(String modelName, Operation operation) {
-        List<Parameter> parameters = operation.getParameters();
+    *
+    * @param modelName model name
+    * @param parameters list of parameters
+    * @param operationId operation Id (optional)
+    */
+    private void flattenParameters(String modelName, List<Parameter> parameters, String operationId) {
+        //List<Parameter> parameters = operation.getParameters();
         if (parameters == null) {
             return;
         }
 
         for (Parameter parameter : parameters) {
+            if (StringUtils.isNotEmpty(parameter.get$ref())) {
+                parameter = ModelUtils.getReferencedParameter(openAPI, parameter);
+            }
+
             if (parameter.getSchema() == null) {
                 continue;
             }
@@ -428,23 +535,22 @@ public class InlineModelFlattener {
                 continue;
             }
             String schemaName = resolveModelName(parameterSchema.getTitle(),
-                    (operation.getOperationId() == null ? modelName : operation.getOperationId()) + "_" + parameter.getName() + "_parameter");
+                    (operationId == null ? modelName : operationId) + "_" + parameter.getName() + "_parameter");
             // Recursively gather/make inline models within this schema if any
             gatherInlineModels(parameterSchema, schemaName);
             if (isModelNeeded(parameterSchema)) {
                 // If this schema should be split into its own model, do so
-                Schema refSchema = this.makeSchemaInComponents(schemaName, parameterSchema);
-                parameter.setSchema(refSchema);
+                parameter.setSchema(this.makeSchemaInComponents(schemaName, parameterSchema));
             }
         }
     }
 
     /**
      * Flatten inline models in ApiResponses
-     *
-     * @param modelName model name prefix
-     * @param operation target operation
-     */
+    *
+    * @param modelName model name prefix
+    * @param operation target operation
+    */
     private void flattenResponses(String modelName, Operation operation) {
         ApiResponses responses = operation.getResponses();
         if (responses == null) {
@@ -462,31 +568,32 @@ public class InlineModelFlattener {
 
     /**
      * Flattens properties of inline object schemas that belong to a composed schema into a
-     * single flat list of properties. This is useful to generate a single or multiple
-     * inheritance model.
-     * <p>
-     * In the example below, codegen may generate a 'Dog' class that extends from the
-     * generated 'Animal' class. 'Dog' has additional properties 'name', 'age' and 'breed' that
-     * are flattened as a single list of properties.
-     * <p>
-     * Dog:
-     * allOf:
-     * - $ref: '#/components/schemas/Animal'
-     * - type: object
-     * properties:
-     * name:
-     * type: string
-     * age:
-     * type: string
-     * - type: object
-     * properties:
-     * breed:
-     * type: string
-     *
-     * @param key      a unique name ofr the composed schema.
-     * @param children the list of nested schemas within a composed schema (allOf, anyOf, oneOf).
-     */
-    private void flattenComposedChildren(String key, List<Schema> children) {
+    * single flat list of properties. This is useful to generate a single or multiple
+    * inheritance model.
+    * <p>
+    * In the example below, codegen may generate a 'Dog' class that extends from the
+    * generated 'Animal' class. 'Dog' has additional properties 'name', 'age' and 'breed' that
+    * are flattened as a single list of properties.
+    * <p>
+    * Dog:
+    * allOf:
+    * - $ref: '#/components/schemas/Animal'
+    * - type: object
+    *   properties:
+    *     name:
+    *       type: string
+    *     age:
+    *       type: string
+    * - type: object
+    *   properties:
+    *     breed:
+    *       type: string
+    *
+    * @param key      a unique name ofr the composed schema.
+    * @param children the list of nested schemas within a composed schema (allOf, anyOf, oneOf).
+    * @param skipAllOfInlineSchemas true if allOf inline schemas need to be skipped.
+    */
+    private void flattenComposedChildren(String key, List<Schema> children, boolean skipAllOfInlineSchemas) {
         if (children == null || children.isEmpty()) {
             return;
         }
@@ -509,24 +616,30 @@ public class InlineModelFlattener {
                 // instead of inline.
                 String innerModelName = resolveModelName(component.getTitle(), key);
                 Schema innerModel = modelFromProperty(openAPI, component, innerModelName);
-                String existing = matchGenerated(innerModel);
-                if (existing == null) {
-                    innerModelName = addSchemas(innerModelName, innerModel);
-                    Schema schema = new Schema().$ref(innerModelName);
-                    schema.setRequired(component.getRequired());
-                    listIterator.set(schema);
-                } else {
-                    Schema schema = new Schema().$ref(existing);
-                    schema.setRequired(component.getRequired());
-                    listIterator.set(schema);
-                }
+                // Recurse to create $refs for inner models
+                gatherInlineModels(innerModel, innerModelName);
+            //  if (!skipAllOfInlineSchemas) {
+                    String existing = matchGenerated(innerModel);
+                    if (existing == null) {
+                        innerModelName = addSchemas(innerModelName, innerModel);
+                        Schema schema = new Schema().$ref(innerModelName);
+                        schema.setRequired(component.getRequired());
+                        listIterator.set(schema);
+                    } else {
+                        Schema schema = new Schema().$ref(existing);
+                        schema.setRequired(component.getRequired());
+                        listIterator.set(schema);
+                    }
+            //  } else {
+            //      LOGGER.debug("Inline allOf schema {} not refactored into a separate model using $ref.", innerModelName);
+            //  }
             }
         }
     }
 
     /**
      * Flatten inline models in components
-     */
+    */
     private void flattenComponents() {
         Map<String, Schema> models = openAPI.getComponents().getSchemas();
         if (models == null) {
@@ -536,13 +649,19 @@ public class InlineModelFlattener {
         List<String> modelNames = new ArrayList<String>(models.keySet());
         for (String modelName : modelNames) {
             Schema model = models.get(modelName);
-            if (ModelUtils.isComposedSchema(model)) {
-                ComposedSchema m = (ComposedSchema) model;
+            if (model == null) {
+                continue;
+            }
+            if (ModelUtils.isAnyOf(model)) { // contains anyOf only
+                gatherInlineModels(model, modelName);
+            } else if (ModelUtils.isOneOf(model)) { // contains oneOf only
+                gatherInlineModels(model, modelName);
+            } else if (ModelUtils.isComposedSchema(model)) {
                 // inline child schemas
-                flattenComposedChildren(modelName + "_allOf", m.getAllOf());
-                flattenComposedChildren(modelName + "_anyOf", m.getAnyOf());
-                flattenComposedChildren(modelName + "_oneOf", m.getOneOf());
-            } else if (model instanceof Schema) {
+                flattenComposedChildren(modelName + "_allOf", model.getAllOf(), !Boolean.TRUE.equals(this.refactorAllOfInlineSchemas));
+                flattenComposedChildren(modelName + "_anyOf", model.getAnyOf(), false);
+                flattenComposedChildren(modelName + "_oneOf", model.getOneOf(), false);
+            } else {
                 gatherInlineModels(model, modelName);
             }
         }
@@ -550,10 +669,10 @@ public class InlineModelFlattener {
 
     /**
      * This function fix models that are string (mostly enum). Before this fix, the
-     * example would look something like that in the doc: "\"example from def\""
-     *
-     * @param m Schema implementation
-     */
+    * example would look something like that in the doc: "\"example from def\""
+    *
+    * @param m Schema implementation
+    */
     private void fixStringModel(Schema m) {
         if (schemaIsOfType(m, "string") && schemaContainsExample(m)) {
             String example = m.getExample().toString();
@@ -573,16 +692,16 @@ public class InlineModelFlattener {
 
     /**
      * Generates a unique model name. Non-alphanumeric characters will be replaced
-     * with underscores
-     * <p>
-     * e.g. io.schema.User_name => io_schema_User_name
-     *
-     * @param title     String title field in the schema if present
-     * @param modelName String model name
-     * @return if provided the sanitized {@code title}, else the sanitized {@code key}
-     */
+    * with underscores
+    * <p>
+    * e.g. io.schema.User_name => io_schema_User_name
+    *
+    * @param title     String title field in the schema if present
+    * @param modelName String model name
+    * @return if provided the sanitized {@code title}, else the sanitized {@code key}
+    */
     private String resolveModelName(String title, String modelName) {
-        if (title == null) {
+        if (title == null || "".equals(sanitizeName(title).replace("_", ""))) {
             if (modelName == null) {
                 return uniqueName("inline_object");
             }
@@ -593,6 +712,19 @@ public class InlineModelFlattener {
     }
 
     private String matchGenerated(Schema model) {
+        if (skipSchemaReuse) { // skip reusing schema
+            return null;
+        }
+
+        try {
+            String json = structureMapper.writeValueAsString(model);
+            if (generatedSignature.containsKey(json)) {
+                return generatedSignature.get(json);
+            }
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
+
         return null;
     }
 
@@ -607,11 +739,11 @@ public class InlineModelFlattener {
 
     /**
      * Sanitizes the input so that it's valid name for a class or interface
-     * <p>
-     * e.g. 12.schema.User name => _2_schema_User_name
-     *
-     * @param name name to be processed to make sure it's sanitized
-     */
+    * <p>
+    * e.g. 12.schema.User name => _2_schema_User_name
+    *
+    * @param name name to be processed to make sure it's sanitized
+    */
     private String sanitizeName(final String name) {
         return name
                 .replaceAll("^[0-9]", "_$0") // e.g. 12object => _12object
@@ -620,9 +752,9 @@ public class InlineModelFlattener {
 
     /**
      * Generate a unique name for the input
-     *
-     * @param name name to be processed to make sure it's unique
-     */
+    *
+    * @param name name to be processed to make sure it's unique
+    */
     private String uniqueName(final String name) {
         if (openAPI.getComponents().getSchemas() == null) { // no schema has been created
             return name;
@@ -647,9 +779,8 @@ public class InlineModelFlattener {
         for (Map.Entry<String, Schema> propertiesEntry : properties.entrySet()) {
             String key = propertiesEntry.getKey();
             Schema property = propertiesEntry.getValue();
-            if (property instanceof ObjectSchema && ((ObjectSchema) property).getProperties() != null
-                    && ((ObjectSchema) property).getProperties().size() > 0) {
-                ObjectSchema op = (ObjectSchema) property;
+            if (ModelUtils.isObjectSchema(property)) {
+                Schema op = property;
                 String modelName = resolveModelName(op.getTitle(), path + "_" + key);
                 Schema model = modelFromProperty(openAPI, op, modelName);
                 String existing = matchGenerated(model);
@@ -664,11 +795,10 @@ public class InlineModelFlattener {
                     propsToUpdate.put(key, schema);
                     modelsToAdd.put(modelName, model);
                 }
-            } else if (property instanceof ArraySchema) {
-                ArraySchema ap = (ArraySchema) property;
-                Schema inner = ap.getItems();
-                if (inner instanceof ObjectSchema) {
-                    ObjectSchema op = (ObjectSchema) inner;
+            } else if (ModelUtils.isArraySchema(property)) {
+                Schema inner = ModelUtils.getSchemaItems(property);
+                if (ModelUtils.isObjectSchema(inner)) {
+                    Schema op = inner;
                     if (op.getProperties() != null && op.getProperties().size() > 0) {
                         flattenProperties(openAPI, op.getProperties(), path);
                         String modelName = resolveModelName(op.getTitle(), path + "_" + key);
@@ -677,20 +807,28 @@ public class InlineModelFlattener {
                         if (existing != null) {
                             Schema schema = new Schema().$ref(existing);
                             schema.setRequired(op.getRequired());
-                            ap.setItems(schema);
+                            property.setItems(schema);
                         } else {
                             modelName = addSchemas(modelName, innerModel);
                             Schema schema = new Schema().$ref(modelName);
                             schema.setRequired(op.getRequired());
-                            ap.setItems(schema);
+                            property.setItems(schema);
                         }
                     }
+                } else if (ModelUtils.isComposedSchema(inner)) {
+                    String innerModelName = resolveModelName(inner.getTitle(), path + "_" + key);
+                    gatherInlineModels(inner, innerModelName);
+                    innerModelName = addSchemas(innerModelName, inner);
+                    Schema schema = new Schema().$ref(innerModelName);
+                    schema.setRequired(inner.getRequired());
+                    property.setItems(schema);
+                } else {
+                    LOGGER.debug("Schema not yet handled in model resolver: {}", inner);
                 }
-            }
-            if (ModelUtils.isMapSchema(property)) {
+            } else if (ModelUtils.isMapSchema(property)) {
                 Schema inner = ModelUtils.getAdditionalProperties(property);
-                if (inner instanceof ObjectSchema) {
-                    ObjectSchema op = (ObjectSchema) inner;
+                if (ModelUtils.isObjectSchema(inner)) {
+                    Schema op = inner;
                     if (op.getProperties() != null && op.getProperties().size() > 0) {
                         flattenProperties(openAPI, op.getProperties(), path);
                         String modelName = resolveModelName(op.getTitle(), path + "_" + key);
@@ -707,7 +845,33 @@ public class InlineModelFlattener {
                             property.setAdditionalProperties(schema);
                         }
                     }
+                } else if (ModelUtils.isComposedSchema(inner)) {
+                    String innerModelName = resolveModelName(inner.getTitle(), path + "_" + key);
+                    gatherInlineModels(inner, innerModelName);
+                    innerModelName = addSchemas(innerModelName, inner);
+                    Schema schema = new Schema().$ref(innerModelName);
+                    schema.setRequired(inner.getRequired());
+                    property.setAdditionalProperties(schema);
+                } else {
+                    LOGGER.debug("Schema not yet handled in model resolver: {}", inner);
                 }
+            } else if (ModelUtils.isComposedSchema(property)) { // oneOf, anyOf, allOf etc
+                if (property.getAllOf() != null && property.getAllOf().size() == 1 // allOf with a single item
+                        && (property.getOneOf() == null || property.getOneOf().isEmpty()) // not oneOf
+                        && (property.getAnyOf() == null || property.getAnyOf().isEmpty()) // not anyOf
+                        && (property.getProperties() == null || property.getProperties().isEmpty())) { // no property
+                    // don't do anything if it's allOf with a single item
+                    LOGGER.debug("allOf with a single item (which can be handled by default codegen) skipped by inline model resolver: {}", property);
+                } else {
+                    String propertyModelName = resolveModelName(property.getTitle(), path + "_" + key);
+                    gatherInlineModels(property, propertyModelName);
+                    propertyModelName = addSchemas(propertyModelName, property);
+                    Schema schema = new Schema().$ref(propertyModelName);
+                    schema.setRequired(property.getRequired());
+                    propsToUpdate.put(key, schema);
+                }
+            } else {
+                LOGGER.debug("Schema not yet handled in model resolver: {}", property);
             }
         }
         if (propsToUpdate.size() > 0) {
@@ -741,8 +905,10 @@ public class InlineModelFlattener {
         // including object types.
         model.setFormat(object.getFormat());
 
+        if (object.getExample() != null) {
+            model.setExample(example);
+        }
         model.setDescription(description);
-        model.setExample(example);
         model.setName(object.getName());
         model.setXml(xml);
         model.setRequired(object.getRequired());
@@ -781,12 +947,12 @@ public class InlineModelFlattener {
 
     /**
      * Move schema to components (if new) and return $ref to schema or
-     * existing schema.
-     *
-     * @param name   new schema name
-     * @param schema schema to move to components or find existing ref
-     * @return {@link Schema} $ref schema to new or existing schema
-     */
+    * existing schema.
+    *
+    * @param name   new schema name
+    * @param schema schema to move to components or find existing ref
+    * @return {@link Schema} $ref schema to new or existing schema
+    */
     private Schema makeSchemaInComponents(String name, Schema schema) {
         String existing = matchGenerated(schema);
         Schema refSchema;
@@ -806,11 +972,11 @@ public class InlineModelFlattener {
 
     /**
      * Make a Schema
-     *
-     * @param ref      new property name
-     * @param property Schema
-     * @return {@link Schema} A constructed OpenAPI property
-     */
+    *
+    * @param ref      new property name
+    * @param property Schema
+    * @return {@link Schema} A constructed OpenAPI property
+    */
     private Schema makeSchema(String ref, Schema property) {
         Schema newProperty = new Schema().$ref(ref);
         this.copyVendorExtensions(property, newProperty);
@@ -819,10 +985,10 @@ public class InlineModelFlattener {
 
     /**
      * Copy vendor extensions from Model to another Model
-     *
-     * @param source source property
-     * @param target target property
-     */
+    *
+    * @param source source property
+    * @param target target property
+    */
     private void copyVendorExtensions(Schema source, Schema target) {
         Map<String, Object> vendorExtensions = source.getExtensions();
         if (vendorExtensions == null) {
@@ -835,11 +1001,11 @@ public class InlineModelFlattener {
 
     /**
      * Add the schemas to the components
-     *
-     * @param name   name of the inline schema
-     * @param schema inilne schema
-     * @return the actual model name (based on inlineSchemaNameMapping if provied)
-     */
+    *
+    * @param name   name of the inline schema
+    * @param schema inilne schema
+    * @return the actual model name (based on inlineSchemaNameMapping if provided)
+    */
     private String addSchemas(String name, Schema schema) {
         //check inlineSchemaNameMapping
         if (inlineSchemaNameMapping.containsKey(name)) {
@@ -849,13 +1015,11 @@ public class InlineModelFlattener {
         addGenerated(name, schema);
         openAPI.getComponents().addSchemas(name, schema);
         if (!name.equals(schema.getTitle()) && !inlineSchemaNameMappingValues.contains(name)) {
-            LOGGER.info("Inline schema created as {}. To have complete control of the model name, set the `title` field or use the inlineSchemaNameMapping option (--inline-schema-name-mapping in CLI).", name);
+            LOGGER.info("Inline schema created as {}. To have complete control of the model name, set the `title` field or use the modelNameMapping option (e.g. --model-name-mappings {}=NewModel,ModelA=NewModelA in CLI) or inlineSchemaNameMapping option (--inline-schema-name-mappings {}=NewModel,ModelA=NewModelA in CLI).", name, name, name);
         }
 
         uniqueNames.add(name);
 
         return name;
     }
-
-
 }

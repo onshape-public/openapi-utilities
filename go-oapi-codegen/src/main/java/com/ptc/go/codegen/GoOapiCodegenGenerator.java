@@ -63,11 +63,9 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
 
   @Override
   public ModelsMap postProcessModels(ModelsMap objs) {
-    ensureVarsAreInAllVars(objs);
     resolveParameterNamingConflicts(objs);
     addUnconstrainedDiscriminatorInheritance(objs);
     objs = super.postProcessModels(objs);
-    addAdditionalImports(objs);
     prefixConstNamesWithType(objs);
 
     return objs;
@@ -129,21 +127,10 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
                     || ("Get" + o.name + "Ok").equals(pName.value)
                     || ("Has" + o.name).equals(pName.value)
                     || ("Set" + o.name).equals(pName.value)).findFirst().isPresent()) {
-                pName.value += "_";
+                        pName.value += "_";
             }
 
             param.name = pName.value;
-        }
-    }
-  }
-
-  protected void ensureVarsAreInAllVars(ModelsMap objs) {
-    for (ModelMap m : objs.getModels()) {
-        CodegenModel model = m.getModel();
-        for(CodegenProperty prop : model.getVars()) {
-            if(model.getAllVars().stream().noneMatch(x -> x.name != null && (x == prop || x.name == prop.name))) {
-                model.getAllVars().add(model.getAllVars().size(), prop);
-            }
         }
     }
   }
@@ -215,7 +202,7 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
 
   @Override
   protected String getParameterDataType(Parameter parameter, Schema schema) {
-    Schema unaliasSchema = unaliasSchema(schema, Collections.emptyMap());
+    Schema unaliasSchema = unaliasSchema(schema);
     if (unaliasSchema.get$ref() != null) {
         return toModelName(ModelUtils.getSimpleRef(unaliasSchema.get$ref()));
     }
@@ -232,7 +219,7 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
           // specification is aligned with the JSON schema specification.
           // When "items" is not specified, the elements of the array may be anything at all.
           if (inner != null) {
-              inner = unaliasSchema(inner, Collections.emptyMap());
+              inner = unaliasSchema(inner);
           }
           String typDecl;
           if (inner != null) {
@@ -246,7 +233,7 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
           return "[]" + typDecl;
       } else if (ModelUtils.isMapSchema(p)) {
           Schema inner = ModelUtils.getAdditionalProperties(p);
-          return getSchemaType(p) + "[string]" + getTypeDeclaration(unaliasSchema(inner, Collections.emptyMap()));
+          return getSchemaType(p) + "[string]" + getTypeDeclaration(unaliasSchema(inner));
       }
       //return super.getTypeDeclaration(p);
 
@@ -277,113 +264,11 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
       return toModelName(openAPIType);
   }
 
-  // TODO: consider removing
-  // TODO: since it is no longer part of GoClientCodegen code generator, maybe we should remove it
-  private Schema unaliasSchema(Schema schema, Map<String, String> importMappings) {
-      Map<String, Schema> allSchemas = ModelUtils.getSchemas(openAPI);
-        if (allSchemas == null || allSchemas.isEmpty()) {
-            return schema;
-        }
 
-        if (schema != null && StringUtils.isNotEmpty(schema.get$ref())) {
-            String simpleRef = ModelUtils.getSimpleRef(schema.get$ref());
-            if (importMappings.containsKey(simpleRef)) {
-                return schema;
-            }
-            Schema ref = allSchemas.get(simpleRef);
-            if (ref == null) {
-                return schema;
-            } else if (ref.getEnum() != null && !ref.getEnum().isEmpty()) {
-                // top-level enum class
-                return schema;
-            } else if (ModelUtils.isArraySchema(ref)) {
-                if (ModelUtils.isGenerateAliasAsModel(ref)) {
-                    return schema; // generate a model extending array
-                } else {
-                    return unaliasSchema(allSchemas.get(ModelUtils.getSimpleRef(schema.get$ref())),
-                            importMappings);
-                }
-            } else if (ModelUtils.isComposedSchema(ref)) {
-                return schema;
-            } else if (ModelUtils.isMapSchema(ref)) {
-                if (ref.getProperties() != null && !ref.getProperties().isEmpty()) // has at least one property
-                    return schema; // treat it as model
-                else {
-                    if (ModelUtils.isGenerateAliasAsModel(ref)) {
-                        return schema; // generate a model extending map
-                    } else {
-                        // treat it as a typical map
-                        return unaliasSchema(allSchemas.get(ModelUtils.getSimpleRef(schema.get$ref())),
-                                importMappings);
-                    }
-                }
-            } else if (ModelUtils.isObjectSchema(ref)) { // model
-                if ((ref.getProperties() != null && !ref.getProperties().isEmpty()) || ModelUtils.isDisallowAdditionalPropertiesIfNotPresent() || new Boolean(false).equals(ref.getAdditionalProperties())) { // has at least one property
-                  if (ModelUtils.hasSelfReference(openAPI, ref)) {
-                        // it's self referencing so returning itself instead
-                        return schema;
-                    } else {
-                        // TODO we may revise below to return `ref` instead of schema
-                        // which is the last reference to the actual model/object
-                        return schema;
-                    }
-                } else { // free form object (type: object)
-                    return unaliasSchema(allSchemas.get(ModelUtils.getSimpleRef(schema.get$ref())),
-                            importMappings);
-                }
-            } else {
-                return unaliasSchema(allSchemas.get(ModelUtils.getSimpleRef(schema.get$ref())), importMappings);
-            }
-        }
-    return schema;
-  }
-
-  @Override
-  public CodegenModel fromModel(String name, Schema schema) {
-      Map<String, Schema> allDefinitions = ModelUtils.getSchemas(this.openAPI);
-      if (typeAliases == null) {
-          typeAliases = getAllAliases(allDefinitions);
-      }
-      return super.fromModel(name, schema);
-  }
-
-  /**
-     * Determine all of the types in the model definitions (schemas) that are aliases of
-     * simple types.
-     *
-     * @param schemas The complete set of model definitions (schemas).
-     * @return A mapping from model name to type alias
-     */
-    private Map<String, String> getAllAliases(Map<String, Schema> schemas) {
-      if (schemas == null || schemas.isEmpty()) {
-          return new HashMap<>();
-      }
-
-      Map<String, String> aliases = new HashMap<>();
-      for (Map.Entry<String, Schema> entry : schemas.entrySet()) {
-          Schema schema = entry.getValue();
-          if (isAliasOfSimpleTypes(schema)) {
-              String oasName = entry.getKey();
-              String schemaType = getPrimitiveType(schema);
-              aliases.put(oasName, schemaType);
-          }
-
-      }
-
-      return aliases;
-  }
-
-  private static Boolean isAliasOfSimpleTypes(Schema schema) {
-    return (!ModelUtils.isObjectSchema(schema)
-            && !ModelUtils.isArraySchema(schema)
-            && !ModelUtils.isMapSchema(schema)
-            && !ModelUtils.isComposedSchema(schema)
-            && schema.getEnum() == null);
-  }
 
   @Override
   protected String getSingleSchemaType(Schema schema) {
-    Schema unaliasSchema = unaliasSchema(schema, importMapping);
+    Schema unaliasSchema = unaliasSchema(schema);
 
     if (StringUtils.isNotBlank(unaliasSchema.get$ref())) { // reference to another definition/schema
         // get the schema/model name from $ref
@@ -476,7 +361,7 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
             return schema.getFormat();
         }
         return "string";
-    } else if (isFreeFormObject(schema)) {
+    } else if (ModelUtils.isFreeFormObject(schema, openAPI)) {
         // Note: the value of a free-form object cannot be an arbitrary type. Per OAS specification,
         // it must be a map of string to values.
         return "object";
@@ -497,57 +382,5 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
     // TODO: we should return a different value to distinguish between free-form object
     // and arbitrary type.
     return "object";
-  }
-
-  
-  // TODO: consider removing
-  // TODO: since it is no longer part of GoClientCodegen code generator, maybe we should remove it
-  protected boolean isFreeFormObject(Schema schema) {
-    if (schema == null) {
-        return false;
-    }
-
-    // not free-form if allOf, anyOf, oneOf is not empty
-    if (schema instanceof ComposedSchema) {
-        ComposedSchema cs = (ComposedSchema) schema;
-        List<Schema> interfaces = ModelUtils.getInterfaces(cs);
-        if (interfaces != null && !interfaces.isEmpty()) {
-            return false;
-        }
-    }
-
-    // has at least one property
-    if ("object".equals(schema.getType())) {
-        // no properties
-        if ((schema.getProperties() == null || schema.getProperties().isEmpty())) {
-            Schema addlProps = ModelUtils.getAdditionalProperties(schema);
-
-            if (schema.getExtensions() != null && schema.getExtensions().containsKey("x-is-free-form")) {
-                // User has hard-coded vendor extension to handle free-form evaluation.
-                boolean isFreeFormExplicit = Boolean.parseBoolean(String.valueOf(schema.getExtensions().get("x-is-free-form")));
-                return isFreeFormExplicit;
-            }
-
-            // additionalProperties not defined
-            if (addlProps == null) {
-                return !ModelUtils.isDisallowAdditionalPropertiesIfNotPresent();
-            } else {
-                if (addlProps instanceof ObjectSchema) {
-                    ObjectSchema objSchema = (ObjectSchema) addlProps;
-                    // additionalProperties defined as {}
-                    if (objSchema.getProperties() == null || objSchema.getProperties().isEmpty()) {
-                        return true;
-                    }
-                } else if (addlProps instanceof Schema) {
-                    // additionalProperties defined as {}
-                    if (addlProps.getType() == null && addlProps.get$ref() == null && (addlProps.getProperties() == null || addlProps.getProperties().isEmpty())) {
-                        return true;
-                    }
-                }
-            }
-        }
-    }
-
-    return false;
   }
 }
