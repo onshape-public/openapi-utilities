@@ -100,15 +100,13 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
                     for (HashMap<String, String> enumVar : enumVars) {
                         // Switch to PascalCase
                         String name = enumVar.get("name");
-                        name = StringUtils.replace(name, "_", " ");
-                        name = StringUtils.lowerCase(name);
-                        String[] nameparts = name.split(" ");
+                        name = namifyEnumValue(name);
 
                         // Prefix with type
-                        name = model.getName();
-                        for (String namePart : nameparts) {
-                            name = name + StringUtils.capitalize(namePart);
+                        if (enumClassPrefix) {
+                            name = model.getName() + name;
                         }
+
                         enumVar.put("name", name);
                     }
                 }
@@ -203,6 +201,14 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
     @Override
     public boolean getUseInlineModelResolver() {
         return false;
+    }
+
+    @Override
+    public String toEnumDefaultValue(String value, String datatype) {
+        if (enumClassPrefix) {
+            return datatype + namifyEnumValue(value);
+        }
+        return value;
     }
 
     @Override
@@ -397,5 +403,18 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
         // object
         // and arbitrary type.
         return "object";
+    }
+    
+    private String namifyEnumValue(String enumValue) {
+        String name = StringUtils.replace(enumValue, "_", " ");
+        name = StringUtils.lowerCase(name);
+        String[] nameparts = name.split(" ");
+        String result ="";
+
+        for (String part : nameparts) {
+            result += StringUtils.capitalize(part);
+        }
+
+        return result;
     }
 }

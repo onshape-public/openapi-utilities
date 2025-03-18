@@ -1,2 +1,9 @@
 # Binaries
 */target/**
+
+# Debugging
+debug/
+tmp/
+
+# User specific
+.vscode/

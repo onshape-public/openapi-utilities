@@ -100,7 +100,7 @@ jobs:
             packageVersion=0.0.0
           fi
 
-          java -cp ${repo}/go-oapi-codegen.jar:${repo}/openapi-generator-cli.jar org.openapitools.codegen.OpenAPIGenerator generate -i ${repo}/openapi.json.tmp -g go-oapi-codegen -o ${repo}/onshape --type-mappings DateTime=JSONTime --additional-properties=packageVersion=${packageVersion} --additional-properties=useOneOfDiscriminatorLookup=true --api-name-suffix=Api --global-property apiTests=false -c ${repo}/openapi_config.json
+          java -cp ${repo}/go-oapi-codegen.jar:${repo}/openapi-generator-cli.jar org.openapitools.codegen.OpenAPIGenerator generate -i ${repo}/openapi.json.tmp -g go-oapi-codegen -o ${repo}/onshape --type-mappings DateTime=JSONTime --additional-properties=packageVersion=${packageVersion} --additional-properties=useOneOfDiscriminatorLookup=true --additional-properties=enumClassPrefix=true --api-name-suffix=Api --global-property apiTests=false -c ${repo}/openapi_config.json
           goimports -w ${repo}/onshape
 
           rm openapi.json.tmp
