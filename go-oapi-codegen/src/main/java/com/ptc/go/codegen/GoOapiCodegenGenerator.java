@@ -245,6 +245,8 @@ public class GoOapiCodegenGenerator extends org.openapitools.codegen.languages.G
             return "[]" + typDecl;
         } else if (ModelUtils.isMapSchema(p)) {
             Schema inner = ModelUtils.getAdditionalProperties(p);
+            if (ModelUtils.isObjectSchema(inner)) 
+                return getSchemaType(p) + "[string]interface{}";
             return getSchemaType(p) + "[string]" + getTypeDeclaration(unaliasSchema(inner));
         }
         // return super.getTypeDeclaration(p);
