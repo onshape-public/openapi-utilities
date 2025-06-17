@@ -80,6 +80,7 @@ jobs:
             changedVersion=$(cat ${{ github.workspace }}/openapi.json | json info.version)
             randomVersion=${RANDOM}
             git checkout -b onshape-${changedVersion}_${randomVersion}
+            echo "Pushing to branch onshape-${changedVersion}_${randomVersion}"
             git commit -m "Fetch latest OpenAPI specification (version ${changedVersion})"
             echo "changes=true" >> $GITHUB_OUTPUT
             echo "change=${changedVersion}" >> $GITHUB_OUTPUT
