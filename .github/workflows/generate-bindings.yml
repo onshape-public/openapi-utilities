@@ -71,7 +71,6 @@ jobs:
           done
           changedVersion=$(cat ${repo}/openapi.json | json info.version)
           echo "change=${changedVersion}" >> $GITHUB_OUTPUT
-          echo "random-ext=${RANDOM}" >> $GITHUB_OUTPUT
       - name: Remove old files
         run: |
           artifacts=$(cat ./onshape/.openapi-generator-ignore | grep "^[^#]")
@@ -128,7 +127,7 @@ jobs:
         id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
-          branch: onshape-${{ steps.ps.outputs.change }}_${{ steps.ps.outputs.random-ext }}
+          branch: ${{ github.ref }}
           delete-branch: true
           title: Bindings for Onshape ${{ steps.ps.outputs.change }}
           commit-message: Generate bindings for Onshape ${{ steps.ps.outputs.change }}

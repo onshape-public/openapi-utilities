@@ -72,20 +72,22 @@ jobs:
       - name: Check version status
         id: fetchStatus
         run: |
-         git config user.name github-actions
-         git config user.email github-actions@github.com
-         git add openapi.json
-         if [[ `git status --porcelain` ]]; then
-           echo 'Specification was outdated; committing new specification.'
-           changedVersion=$(cat ${{ github.workspace }}/openapi.json | json info.version)
-           git commit -m "Fetch latest OpenAPI specification (version ${changedVersion})"
-           echo "changes=true" >> $GITHUB_OUTPUT
-           echo "rev-sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-         else
-           echo 'Specification was not outdated'
-         fi
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add openapi.json
+          if [[ `git status --porcelain` ]]; then
+            echo 'Specification was outdated; committing new specification.'
+            changedVersion=$(cat ${{ github.workspace }}/openapi.json | json info.version)
+            git commit -m "Fetch latest OpenAPI specification (version ${changedVersion})"
+            echo "changes=true" >> $GITHUB_OUTPUT
+            echo "change=${changedVersion}" >> $GITHUB_OUTPUT
+            echo "random-ext=${RANDOM}" >> $GITHUB_OUTPUT
+          else
+            echo 'Specification was not outdated'
+          fi
       - name: Push changes
         if: ${{ steps.fetchStatus.outputs.changes }}
         uses: ad-m/github-push-action@master
         with:
          github_token: ${{ secrets.BOT_ACCESS_TOKEN }}
+         branch: onshape-${{ steps.fetchStatus.outputs.change }}_${{ steps.fetchStatus.outputs.random-ext }}
