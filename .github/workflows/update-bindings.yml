@@ -78,10 +78,12 @@ jobs:
           if [[ `git status --porcelain` ]]; then
             echo 'Specification was outdated; committing new specification.'
             changedVersion=$(cat ${{ github.workspace }}/openapi.json | json info.version)
+            randomVersion=${RANDOM}
+            git checkout -b onshape-${changedVersion}_${randomVersion}
             git commit -m "Fetch latest OpenAPI specification (version ${changedVersion})"
             echo "changes=true" >> $GITHUB_OUTPUT
             echo "change=${changedVersion}" >> $GITHUB_OUTPUT
-            echo "random-ext=${RANDOM}" >> $GITHUB_OUTPUT
+            echo "random-ext=${randomVersion}" >> $GITHUB_OUTPUT
           else
             echo 'Specification was not outdated'
           fi
