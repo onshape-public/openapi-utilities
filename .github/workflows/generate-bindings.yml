@@ -9,6 +9,9 @@ on:
       ONSHAPE_API_SECRET_KEY:
         required: true
 
+env:
+ BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+
 jobs:
   generate:
     runs-on: ubuntu-latest
@@ -137,7 +140,7 @@ jobs:
         uses: fountainhead/action-wait-for-check@v1.0.0
         id: wait-for-build
         with:
-          token: ${{ secrets.BOT_ACCESS_TOKEN }}
+          token: "${BRANCH_NAME}"
           checkName: test / test
           ref: ${{ steps.cpr.outputs.pull-request-head-sha }}
       # TODO: for testing purpose, uncomment
