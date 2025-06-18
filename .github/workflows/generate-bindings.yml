@@ -130,7 +130,7 @@ jobs:
         id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
-          branch: ${{ github.ref }}
+          branch: "${BRANCH_NAME}"
           delete-branch: true
           title: Bindings for Onshape ${{ steps.ps.outputs.change }}
           commit-message: Generate bindings for Onshape ${{ steps.ps.outputs.change }}
@@ -140,7 +140,7 @@ jobs:
         uses: fountainhead/action-wait-for-check@v1.0.0
         id: wait-for-build
         with:
-          token: "${BRANCH_NAME}"
+          token: ${{ secrets.BOT_ACCESS_TOKEN }}
           checkName: test / test
           ref: ${{ steps.cpr.outputs.pull-request-head-sha }}
       # TODO: for testing purpose, uncomment
