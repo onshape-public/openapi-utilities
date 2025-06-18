@@ -9,9 +9,6 @@ on:
       ONSHAPE_API_SECRET_KEY:
         required: true
 
-env:
- BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
-
 jobs:
   generate:
     runs-on: ubuntu-latest
@@ -130,7 +127,7 @@ jobs:
         id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
-          branch: "${BRANCH_NAME}"
+          branch: ${{ github.head_ref || github.ref_name }}
           delete-branch: true
           title: Bindings for Onshape ${{ steps.ps.outputs.change }}
           commit-message: Generate bindings for Onshape ${{ steps.ps.outputs.change }}
