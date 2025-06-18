@@ -132,6 +132,7 @@ jobs:
           title: Bindings for Onshape ${{ steps.ps.outputs.change }}
           commit-message: Generate bindings for Onshape ${{ steps.ps.outputs.change }}
           token: ${{ secrets.BOT_ACCESS_TOKEN }}
+          base: ${{ github.event.repository.default_branch }}
       - name: Wait for checks to pass
         if: ${{ steps.gb.outputs.changes-occurred }}
         uses: fountainhead/action-wait-for-check@v1.0.0
