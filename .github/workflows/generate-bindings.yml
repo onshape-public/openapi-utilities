@@ -141,16 +141,17 @@ jobs:
          export ONSHAPE_API_SECRET_KEY=${{ secrets.ONSHAPE_API_SECRET_KEY }}
          go version
          go test ${{ github.workspace }}/...
-      - name: Merge pull request
-        if: (steps.gb.outputs.changes-occurred && steps.tst.outputs.conclusion == 'success')
-        uses: juliangruber/merge-pull-request-action@v1
-        with:
-          github-token: ${{ secrets.BOT_ACCESS_TOKEN }}
-          number: ${{ steps.cpr.outputs.pull-request-number }}
-      - name: Create version tag
-        if: (steps.gb.outputs.changes-occurred && steps.tst.outputs.conclusion == 'success')
-        run: |
-          git fetch --all
-          git reset --hard origin/${{ github.ref_name }}
-          git tag -f v${{ steps.ps.outputs.change }}
-          git push -f origin --tags
+      # TODO: For testing remove
+      # - name: Merge pull request
+      #   if: (steps.gb.outputs.changes-occurred && steps.tst.outputs.conclusion == 'success')
+      #   uses: juliangruber/merge-pull-request-action@v1
+      #   with:
+      #     github-token: ${{ secrets.BOT_ACCESS_TOKEN }}
+      #     number: ${{ steps.cpr.outputs.pull-request-number }}
+      # - name: Create version tag
+      #   if: (steps.gb.outputs.changes-occurred && steps.tst.outputs.conclusion == 'success')
+      #   run: |
+      #     git fetch --all
+      #     git reset --hard origin/${{ github.ref_name }}
+      #     git tag -f v${{ steps.ps.outputs.change }}
+      #     git push -f origin --tags
